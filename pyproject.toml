@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nemoclaw-arduino-arm"
+version = "0.1.0"
+description = "A safety-first bridge from NemoClaw/OpenClaw agents to an Arduino robot arm"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["pyserial>=3.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+arm-bridge = "arm_bridge.server:main"
+armctl = "arm_bridge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["arm_bridge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

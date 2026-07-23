@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -eu
+
+bridge_url="${ARM_BRIDGE_URL:-http://host.openshell.internal:8765}"
+command="${1:?usage: armctl arm|disarm|home|stop|move [JSON]}"
+body="{\"command\":\"$command\"}"
+if [ "$command" = "move" ]; then
+  joints="${2:?move requires a JSON joints object}"
+  body="{\"command\":\"move\",\"joints\":$joints,\"duration_ms\":800}"
+fi
+
+auth=""
+if [ -n "${ARM_BRIDGE_TOKEN:-}" ]; then auth="Authorization: Bearer $ARM_BRIDGE_TOKEN"; fi
+curl --fail --silent --show-error -X POST "$bridge_url/command" \
+  -H "Content-Type: application/json" ${auth:+-H "$auth"} -d "$body"
+
