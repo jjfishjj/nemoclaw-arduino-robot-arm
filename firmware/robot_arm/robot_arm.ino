@@ -8,35 +8,63 @@ const int LOW_LIMITS[4] = {10, 20, 15, 20};
 const int HIGH_LIMITS[4] = {170, 150, 165, 100};
 const int HOME[4] = {90, 90, 90, 60};
 int positions[4] = {90, 90, 90, 60};
+const uint8_t ENABLE_PIN = 7;  // LOW = hardware interlock open
+const unsigned long COMMAND_WATCHDOG_MS = 5000;
+unsigned long lastValidCommandAt = 0;
+bool outputsEnabled = false;
+
+void attachOutputs() {
+  if (outputsEnabled) return;
+  for (int i = 0; i < 4; i++) {
+    servos[i].attach(PINS[i]);
+    servos[i].write(positions[i]);
+  }
+  outputsEnabled = true;
+}
+
+void detachOutputs() {
+  for (int i = 0; i < 4; i++) servos[i].detach();
+  outputsEnabled = false;
+}
 
 void writeState(JsonDocument& response) {
   JsonObject state = response["state"].to<JsonObject>();
   for (int i = 0; i < 4; i++) state[NAMES[i]] = positions[i];
 }
 
-void moveSmoothly(int targets[4], unsigned long durationMs) {
+bool moveSmoothly(int targets[4], unsigned long durationMs) {
   int starts[4];
   for (int i = 0; i < 4; i++) starts[i] = positions[i];
   const int steps = max(1, (int)(durationMs / 20));
   for (int step = 1; step <= steps; step++) {
+    if (digitalRead(ENABLE_PIN) == LOW) {
+      detachOutputs();
+      return false;
+    }
     for (int i = 0; i < 4; i++) {
       positions[i] = starts[i] + ((targets[i] - starts[i]) * step / steps);
       servos[i].write(positions[i]);
     }
     delay(20);
   }
+  return true;
 }
 
 void setup() {
   Serial.begin(115200);
   Serial.setTimeout(1000);
-  for (int i = 0; i < 4; i++) {
-    servos[i].attach(PINS[i]);
-    servos[i].write(HOME[i]);
-  }
+  pinMode(ENABLE_PIN, INPUT_PULLUP);
+  if (digitalRead(ENABLE_PIN) == HIGH) attachOutputs();
+  lastValidCommandAt = millis();
 }
 
 void loop() {
+  if (digitalRead(ENABLE_PIN) == LOW) {
+    detachOutputs();
+  }
+  if (outputsEnabled && millis() - lastValidCommandAt > COMMAND_WATCHDOG_MS) {
+    detachOutputs();
+  }
   if (!Serial.available()) return;
   String line = Serial.readStringUntil('\n');
   StaticJsonDocument<384> request;
@@ -48,7 +76,12 @@ void loop() {
   }
 
   const char* command = request["command"] | "";
+  if (digitalRead(ENABLE_PIN) == LOW && strcmp(command, "status")) {
+    response["ok"] = false; response["error"] = "hardware interlock open";
+    serializeJson(response, Serial); Serial.println(); return;
+  }
   if (!strcmp(command, "move")) {
+    attachOutputs();
     int targets[4];
     for (int i = 0; i < 4; i++) {
       targets[i] = request["joints"][NAMES[i]] | positions[i];
@@ -57,16 +90,27 @@ void loop() {
         serializeJson(response, Serial); Serial.println(); return;
       }
     }
-    moveSmoothly(targets, request["duration_ms"] | 800);
+    if (!moveSmoothly(targets, request["duration_ms"] | 800)) {
+      response["ok"] = false; response["error"] = "interlock opened during motion";
+      serializeJson(response, Serial); Serial.println(); return;
+    }
   } else if (!strcmp(command, "home")) {
+    attachOutputs();
     int targets[4]; for (int i = 0; i < 4; i++) targets[i] = HOME[i];
-    moveSmoothly(targets, 1000);
-  } else if (strcmp(command, "stop")) {
+    if (!moveSmoothly(targets, 1000)) {
+      response["ok"] = false; response["error"] = "interlock opened during motion";
+      serializeJson(response, Serial); Serial.println(); return;
+    }
+  } else if (!strcmp(command, "stop")) {
+    detachOutputs();
+  } else if (strcmp(command, "status")) {
     response["ok"] = false; response["error"] = "unknown command";
     serializeJson(response, Serial); Serial.println(); return;
   }
+  lastValidCommandAt = millis();
   response["ok"] = true;
+  response["outputs_enabled"] = outputsEnabled;
+  response["interlock_closed"] = digitalRead(ENABLE_PIN) == HIGH;
   writeState(response);
   serializeJson(response, Serial); Serial.println();
 }
-

@@ -33,6 +33,10 @@ Default signal pins are D3, D5, D6, and D9. **Do not power multiple servos from
 the Arduino 5 V pin.** Adjust pins and mechanical limits in
 `firmware/robot_arm/robot_arm.ino` for your hardware.
 
+Follow the [hardware setup and first-motion checklist](docs/hardware-setup.md)
+before connecting servo power. It includes the wiring table, calibration sketch,
+normally-closed interlock, watchdog, and staged first-motion procedure.
+
 ## 1. Try it safely in mock mode
 
 ```bash
@@ -102,6 +106,7 @@ curl -X POST http://127.0.0.1:8765/command \
 - Explicit arming before movement and automatic disarm after `stop`.
 - Joint allowlist, angle bounds, payload limit, and command rate limiting.
 - Firmware repeats joint-bound checks; smooth interpolation reduces sudden moves.
+- A D7 hardware interlock and five-second firmware watchdog detach servo outputs.
 - Host-only bind by default and optional bearer-token authentication.
 
 This is not safety-certified. Add hardware limit switches, current sensing, a
