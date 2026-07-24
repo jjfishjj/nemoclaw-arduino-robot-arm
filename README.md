@@ -1,5 +1,7 @@
 # NemoClaw × Arduino Robot Arm
 
+[![Test](https://github.com/jjfishjj/nemoclaw-arduino-robot-arm/actions/workflows/ci.yml/badge.svg)](https://github.com/jjfishjj/nemoclaw-arduino-robot-arm/actions/workflows/ci.yml)
+
 A safety-first reference project that lets a NemoClaw/OpenClaw agent control a
 four-servo Arduino robot arm through a narrow, auditable host bridge.
 
@@ -20,6 +22,25 @@ NemoClaw does not directly access USB. The bridge stays on the host and exposes
 only five commands: `arm`, `disarm`, `move`, `home`, and `stop`. Movement is
 blocked until explicitly armed, joint angles are bounded twice (host and
 firmware), and mock mode is the default.
+
+## What this project demonstrates
+
+- A narrow, auditable agent-to-hardware interface rather than unrestricted serial access.
+- Defense in depth across agent skill, host validation, firmware limits, interlock, and watchdog.
+- A mock-first development path that can be tested without connecting physical hardware.
+- A practical bridge from NVIDIA agent workflows toward ROS 2 / Isaac Sim sim-to-real validation.
+
+## Repository layout
+
+```text
+.
+├── arm_bridge/          # Validation, rate limiting, HTTP bridge, and CLI
+├── firmware/            # Robot controller and calibration sketches
+├── openclaw-skill/      # Narrow agent-facing commands
+├── docs/                # Wiring and first-motion safety checklist
+├── tests/               # Mock-mode behavioral tests
+└── pyproject.toml        # Package metadata and command entry points
+```
 
 ## Hardware
 
