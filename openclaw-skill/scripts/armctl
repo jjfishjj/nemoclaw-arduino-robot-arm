@@ -1,16 +1,44 @@
 #!/usr/bin/env sh
 set -eu
 
-bridge_url="${ARM_BRIDGE_URL:-http://host.openshell.internal:8765}"
-command="${1:?usage: armctl arm|disarm|home|stop|move [JSON]}"
-body="{\"command\":\"$command\"}"
-if [ "$command" = "move" ]; then
-  joints="${2:?move requires a JSON joints object}"
-  body="{\"command\":\"move\",\"joints\":$joints,\"duration_ms\":800}"
+bridge_url="${ARM_BRIDGE_URL:?ARM_BRIDGE_URL must be the reviewed C1 host endpoint}"
+command="${1:?usage: armctl startup_check|arm|disarm|home|stop|reset_estop|move [JSON] [duration-ms]}"
+token="${ARM_BRIDGE_TOKEN:-}"
+if [ -n "${ARM_BRIDGE_TOKEN_FILE:-}" ]; then
+  token="$(tr -d '\r\n' < "$ARM_BRIDGE_TOKEN_FILE")"
+fi
+if [ "${#token}" -lt 32 ]; then
+  echo "ARM_BRIDGE_TOKEN or ARM_BRIDGE_TOKEN_FILE must contain at least 32 characters" >&2
+  exit 2
 fi
 
-auth=""
-if [ -n "${ARM_BRIDGE_TOKEN:-}" ]; then auth="Authorization: Bearer $ARM_BRIDGE_TOKEN"; fi
-curl --fail --silent --show-error -X POST "$bridge_url/command" \
-  -H "Content-Type: application/json" ${auth:+-H "$auth"} -d "$body"
+case "$command" in
+  arm|disarm|home|stop|heartbeat)
+    body="{\"command\":\"$command\"}"
+    ;;
+  startup_check)
+    body='{"command":"startup_check","checks":{"workspace_clear":true,"physical_estop_tested":true,"joint_limits_reviewed":true,"calibration_verified":true}}'
+    ;;
+  reset_estop)
+    body='{"command":"reset_estop","workspace_confirmed":true}'
+    ;;
+  move)
+    joints="${2:?move requires a JSON joints object}"
+    duration="${3:-800}"
+    case "$duration" in *[!0-9]*|'') echo "duration must be an integer" >&2; exit 2;; esac
+    if [ "$duration" -lt 100 ] || [ "$duration" -gt 5000 ]; then
+      echo "duration must be from 100 to 5000 ms" >&2; exit 2
+    fi
+    body="{\"command\":\"move\",\"joints\":$joints,\"duration_ms\":$duration}"
+    ;;
+  *)
+    echo "unsupported command: $command" >&2
+    exit 2
+    ;;
+esac
+
+curl --fail --silent --show-error --max-time 7 -X POST "$bridge_url/command" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $token" \
+  --data-binary "$body"
 

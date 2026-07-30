@@ -1,0 +1,4 @@
+interface:
+  display_name: "Arduino Robot Arm"
+  short_description: "Control a robot arm through a guarded C1 bridge"
+  default_prompt: "Use $arduino-robot-arm to safely inspect and control the robot arm."

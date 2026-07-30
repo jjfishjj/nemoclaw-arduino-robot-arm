@@ -1,0 +1,15 @@
+preset:
+  name: arduino-arm-bridge
+  description: "POST-only access to the authenticated host robot-arm bridge"
+network_policies:
+  arduino_arm_bridge:
+    name: arduino_arm_bridge
+    endpoints:
+      - host: __BRIDGE_HOST__
+        port: __BRIDGE_PORT__
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: POST, path: "/command" }
+    binaries:
+      - { path: __REQUEST_BINARY__ }
