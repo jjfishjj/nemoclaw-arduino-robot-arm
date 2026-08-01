@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot Arm Local Console</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">NEMOCLAW · LOCAL CONTROL</p>
+        <h1>Robot Arm Console</h1>
+      </div>
+      <div class="connection"><span id="connectionDot" class="dot"></span><span id="connectionText">尚未配對</span></div>
+    </header>
+
+    <section id="pairingPanel" class="pairing card">
+      <div>
+        <p class="section-label">LOCAL PAIRING</p>
+        <h2>輸入終端機顯示的一次性配對碼</h2>
+        <p>Bridge token 只存在本機 Python 程序，不會傳入或儲存在瀏覽器。</p>
+      </div>
+      <form id="pairingForm">
+        <label for="pairingCode">六位數配對碼</label>
+        <div class="pair-row">
+          <input id="pairingCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+          <button class="primary" type="submit">安全配對</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="consolePanel" class="console-grid hidden">
+      <section class="status-card card">
+        <div class="section-head">
+          <div><p class="section-label">LIVE STATUS</p><h2>系統狀態</h2></div>
+          <button id="refreshButton" class="ghost" type="button">重新整理</button>
+        </div>
+        <div class="status-grid">
+          <div class="metric"><span>Profile</span><strong id="profile">—</strong></div>
+          <div class="metric"><span>Armed</span><strong id="armed">—</strong></div>
+          <div class="metric"><span>E-STOP</span><strong id="estop">—</strong></div>
+          <div class="metric"><span>Watchdog</span><strong id="watchdog">—</strong></div>
+          <div class="metric"><span>Interlock</span><strong id="interlock">—</strong></div>
+          <div class="metric"><span>Startup</span><strong id="startup">—</strong></div>
+        </div>
+      </section>
+
+      <section class="checklist-card card">
+        <p class="section-label">STARTUP GATE</p>
+        <h2>啟動前檢查</h2>
+        <label class="check"><input type="checkbox" data-check="workspace_clear"><span>工作範圍無人員與障礙物</span></label>
+        <label class="check"><input type="checkbox" data-check="physical_estop_tested"><span>實體急停已測試且可觸及</span></label>
+        <label class="check"><input type="checkbox" data-check="joint_limits_reviewed"><span>關節限制已核對</span></label>
+        <label class="check"><input type="checkbox" data-check="calibration_verified"><span>校正與 Home 位置已確認</span></label>
+        <button id="confirmChecklist" class="primary wide" type="button" disabled>確認全部檢查</button>
+      </section>
+
+      <section class="joints-card card">
+        <div class="section-head">
+          <div><p class="section-label">JOINT TARGETS</p><h2>關節目標</h2></div>
+          <span class="safe-note">拖曳不會立即移動</span>
+        </div>
+        <div id="jointControls" class="joint-list"></div>
+        <label class="duration-row" for="duration"><span>移動時間</span><output id="durationValue">1200 ms</output></label>
+        <input id="duration" type="range" min="500" max="5000" value="1200" step="100">
+        <button id="moveButton" class="primary wide" type="button" disabled>執行目標位置</button>
+      </section>
+
+      <section class="actions-card card">
+        <p class="section-label">CONTROL</p>
+        <h2>動作控制</h2>
+        <div class="action-grid">
+          <button id="armButton" class="primary" type="button" disabled>ARM</button>
+          <button id="homeButton" class="secondary" type="button" disabled>HOME</button>
+          <button id="disarmButton" class="secondary" type="button">DISARM</button>
+          <button id="resetButton" class="warning" type="button">RESET E-STOP</button>
+        </div>
+        <button id="stopButton" class="stop" type="button">STOP</button>
+        <p class="stop-help">STOP 會解除輸出並鎖定 E-STOP；重新啟動前必須重新確認工作區。</p>
+      </section>
+
+      <section class="events-card card">
+        <div class="section-head">
+          <div><p class="section-label">EVENT LOG</p><h2>最近事件</h2></div>
+          <button id="clearLog" class="ghost" type="button">清除</button>
+        </div>
+        <ol id="eventLog" aria-live="polite"></ol>
+      </section>
+    </div>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
