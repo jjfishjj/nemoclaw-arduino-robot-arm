@@ -1,7 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const state = { paired: false, status: null, poll: null };
+const state = { paired: false, status: null, poll: null, scenes: [], scene: null, plan: null, planConfirmed: false };
 const pairingPanel = $('#pairingPanel');
 const consolePanel = $('#consolePanel');
 const toast = $('#toast');
@@ -41,6 +41,7 @@ function setPaired(paired) {
   $('#connectionText').textContent = paired ? 'Local session' : '尚未配對';
   if (paired) {
     refreshStatus();
+    loadVisionScenes();
     window.clearInterval(state.poll);
     state.poll = window.setInterval(refreshStatus, 1500);
   }
@@ -82,7 +83,78 @@ function renderStatus(status) {
   $('#armButton').disabled = !status.startup_ready || status.estop_latched || status.armed;
   $('#homeButton').disabled = !status.armed;
   $('#moveButton').disabled = !status.armed;
+  updateVisionExecutionGate();
   buildJoints(status);
+}
+
+async function loadVisionScenes() {
+  try {
+    const result = await api('/api/vision/scenes');
+    state.scenes = result.scenes;
+    $('#sceneSelect').replaceChildren(...result.scenes.map((scene) => {
+      const option = document.createElement('option');
+      option.value = scene.id; option.textContent = scene.name; return option;
+    }));
+    showScene(result.scenes[0]);
+  } catch (error) { notify(error.message, true); }
+}
+
+function showScene(scene) {
+  state.scene = scene;
+  state.plan = null; state.planConfirmed = false;
+  $('#sceneImage').src = scene.image;
+  $('#sceneImage').alt = scene.name;
+  $('#planEmpty').classList.remove('hidden');
+  $('#planDetails').classList.add('hidden');
+  const layer = $('#detectionLayer');
+  layer.replaceChildren(...scene.objects.map((object) => {
+    const box = document.createElement('button');
+    box.type = 'button'; box.className = `detection${object.confidence < .8 ? ' low' : ''}`;
+    box.style.left = `${object.bbox.x}%`; box.style.top = `${object.bbox.y}%`;
+    box.style.width = `${object.bbox.w}%`; box.style.height = `${object.bbox.h}%`;
+    box.dataset.objectId = object.id;
+    box.setAttribute('aria-label', `選取 ${object.label}，信心 ${(object.confidence * 100).toFixed(0)}%`);
+    const label = document.createElement('span');
+    label.textContent = `${object.label} ${(object.confidence * 100).toFixed(0)}%`;
+    box.append(label);
+    box.addEventListener('click', () => selectVisionObject(scene.id, object.id, box));
+    return box;
+  }));
+}
+
+async function selectVisionObject(sceneId, objectId, box) {
+  try {
+    const result = await api('/api/vision/select', { method: 'POST', body: JSON.stringify({ scene_id: sceneId, object_id: objectId }) });
+    state.plan = result.plan; state.planConfirmed = false;
+    $$('.detection').forEach((item) => item.classList.remove('selected'));
+    box.classList.add('selected');
+    renderVisionPlan(result.plan);
+    logEvent('VISION SELECT', result.plan.object.label);
+  } catch (error) { notify(error.message, true); logEvent('VISION REJECT', error.message); }
+}
+
+function renderVisionPlan(plan) {
+  $('#planEmpty').classList.add('hidden');
+  $('#planDetails').classList.remove('hidden');
+  $('#planObject').textContent = plan.object.label;
+  $('#planConfidence').textContent = `${(plan.object.confidence * 100).toFixed(0)}%`;
+  $('#planRecipe').textContent = `${plan.recipe.name} · ${plan.recipe.destination}`;
+  $('#planId').textContent = plan.plan_id.slice(0, 10);
+  $('#planSteps').replaceChildren(...plan.recipe.steps.map((step) => {
+    const item = document.createElement('li');
+    const label = document.createElement('strong'); label.textContent = step.label;
+    const detail = document.createElement('span');
+    detail.textContent = `${Object.entries(step.joints).map(([joint, value]) => `${joint}:${value}`).join(' · ')} · ${step.duration_ms}ms`;
+    item.append(label, detail); return item;
+  }));
+  $('#confirmPlanCheck').checked = false;
+  $('#confirmPlanCheck').disabled = false;
+  $('#confirmPlanButton').disabled = true;
+  updateVisionExecutionGate();
+}
+
+function updateVisionExecutionGate() {
+  $('#executePlanButton').disabled = !state.planConfirmed || !state.status?.armed || !state.status?.startup_ready;
 }
 
 async function refreshStatus() {
@@ -147,5 +219,24 @@ $('#moveButton').addEventListener('click', () => {
 $('#duration').addEventListener('input', () => { $('#durationValue').textContent = `${$('#duration').value} ms`; });
 $('#refreshButton').addEventListener('click', refreshStatus);
 $('#clearLog').addEventListener('click', () => $('#eventLog').replaceChildren());
+$('#sceneSelect').addEventListener('change', () => showScene(state.scenes.find((scene) => scene.id === $('#sceneSelect').value)));
+$('#confirmPlanCheck').addEventListener('change', () => { $('#confirmPlanButton').disabled = !$('#confirmPlanCheck').checked || !state.plan; });
+$('#confirmPlanButton').addEventListener('click', async () => {
+  try {
+    const result = await api('/api/vision/confirm', { method: 'POST', body: JSON.stringify({ plan_id: state.plan.plan_id, human_confirmed: true }) });
+    state.plan = result.plan; state.planConfirmed = true;
+    $('#confirmPlanButton').disabled = true;
+    $('#confirmPlanCheck').disabled = true;
+    updateVisionExecutionGate();
+    notify('視覺計畫已由人工確認'); logEvent('VISION CONFIRM', state.plan.recipe.name);
+  } catch (error) { notify(error.message, true); }
+});
+$('#executePlanButton').addEventListener('click', async () => {
+  try {
+    const result = await api('/api/vision/execute', { method: 'POST', body: JSON.stringify({ plan_id: state.plan.plan_id }) });
+    notify('Mock 命名動作執行完成'); logEvent('VISION EXECUTE', `${result.recipe} · ${result.steps.length} steps`);
+    state.planConfirmed = false; updateVisionExecutionGate(); await refreshStatus();
+  } catch (error) { notify(error.message, true); logEvent('VISION ERROR', error.message); }
+});
 
 api('/api/session').then((result) => setPaired(result.paired)).catch(() => setPaired(false));

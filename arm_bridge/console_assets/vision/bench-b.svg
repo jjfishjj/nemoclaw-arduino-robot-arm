@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#21352d"/><stop offset="1" stop-color="#070e0b"/></linearGradient><filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="10" flood-opacity=".45"/></filter></defs>
+  <rect width="800" height="450" fill="url(#bg)"/><path d="M0 165h800v285H0z" fill="#293d34"/>
+  <g filter="url(#shadow)"><rect x="248" y="245" width="176" height="98" rx="12" fill="#43a96c"/><path d="M248 245l50-30h178l-52 30z" fill="#73d493"/></g>
+  <g opacity=".74" filter="url(#shadow)"><rect x="558" y="215" width="121" height="122" rx="10" fill="#b58d57"/><path d="M558 215l38-25h121l-38 25z" fill="#d5b27f"/></g>
+  <path d="M645 175l85 210" stroke="#111c17" stroke-width="58" opacity=".88"/>
+  <path d="M40 390h210" stroke="#ffc66d" stroke-width="3"/><text x="40" y="420" fill="#b9d4c4" font-family="sans-serif" font-size="20">PRE-RECORDED · BENCH B · OCCLUSION</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1d332a"/><stop offset="1" stop-color="#08120e"/></linearGradient><filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="10" flood-opacity=".45"/></filter></defs>
+  <rect width="800" height="450" fill="url(#bg)"/><path d="M0 120h800v330H0z" fill="#32483d"/><path d="M0 170h800v280H0z" fill="#263a31"/>
+  <g opacity=".2" stroke="#9cc4ab"><path d="M0 260h800M0 350h800"/><path d="M200 170v280M400 170v280M600 170v280"/></g>
+  <g filter="url(#shadow)"><rect x="128" y="212" width="152" height="122" rx="8" fill="#dd4b4f"/><path d="M128 212l55-35h151l-54 35z" fill="#ff7778"/><path d="M280 212l54-35v119l-54 38z" fill="#9e3037"/></g>
+  <g filter="url(#shadow)"><ellipse cx="522" cy="184" rx="68" ry="25" fill="#5aa6ee"/><rect x="454" y="184" width="136" height="142" fill="#2478c8"/><ellipse cx="522" cy="326" rx="68" ry="25" fill="#15558f"/></g>
+  <path d="M40 390h210" stroke="#76f0a7" stroke-width="3"/><text x="40" y="420" fill="#b9d4c4" font-family="sans-serif" font-size="20">PRE-RECORDED · BENCH A · FRAME 0042</text>
+</svg>

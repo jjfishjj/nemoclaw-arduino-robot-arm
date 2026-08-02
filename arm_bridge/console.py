@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .core import SafetyError
 from .secure_server import load_token
+from .vision_flow import VisionFlow
 
 
 ASSETS = Path(__file__).with_name("console_assets")
@@ -31,6 +32,7 @@ class ConsoleState:
         self.pairing_attempts = 0
         self.sessions: dict[str, float] = {}
         self.lock = threading.Lock()
+        self.vision = VisionFlow()
 
     def pair(self, code: str) -> str | None:
         with self.lock:
@@ -148,6 +150,8 @@ def make_console_handler(state: ConsoleState, port: int):
                 return self._asset("app.js", "text/javascript; charset=utf-8")
             if self.path == "/styles.css":
                 return self._asset("styles.css", "text/css; charset=utf-8")
+            if self.path in {"/vision/bench-a.svg", "/vision/bench-b.svg"}:
+                return self._asset(self.path.removeprefix("/"), "image/svg+xml")
             if self.path == "/api/session":
                 return self._json(200, {"ok": True, "paired": state.authenticated(self._session())})
             if self.path == "/api/status":
@@ -157,6 +161,10 @@ def make_console_handler(state: ConsoleState, port: int):
                     return self._json(200, state.bridge_request("GET", "/status"))
                 except SafetyError as exc:
                     return self._json(502, {"ok": False, "error": str(exc)})
+            if self.path == "/api/vision/scenes":
+                if not self._require_session():
+                    return
+                return self._json(200, state.vision.scenes())
             self._json(404, {"ok": False, "error": "not found"})
 
         def do_POST(self) -> None:
@@ -175,6 +183,20 @@ def make_console_handler(state: ConsoleState, port: int):
                     return self._json(200, {"ok": True, "paired": True}, cookie)
                 if not self._require_session():
                     return
+                if self.path == "/api/vision/select":
+                    return self._json(200, state.vision.select(
+                        str(body.get("scene_id", "")), str(body.get("object_id", ""))
+                    ))
+                if self.path == "/api/vision/confirm":
+                    return self._json(200, state.vision.confirm(
+                        str(body.get("plan_id", "")), body.get("human_confirmed") is True
+                    ))
+                if self.path == "/api/vision/execute":
+                    status = state.bridge_request("GET", "/status")
+                    return self._json(200, state.vision.execute(
+                        str(body.get("plan_id", "")), status,
+                        lambda payload: state.bridge_request("POST", "/command", payload),
+                    ))
                 if self.path != "/api/command":
                     return self._json(404, {"ok": False, "error": "not found"})
                 command = body.get("command")

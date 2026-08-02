@@ -81,6 +81,35 @@
         <p class="stop-help">STOP 會解除輸出並鎖定 E-STOP；重新啟動前必須重新確認工作區。</p>
       </section>
 
+      <section class="vision-card card">
+        <div class="section-head">
+          <div><p class="section-label">D1 · SIMULATION-FIRST VISION</p><h2>物件選取與命名動作</h2></div>
+          <label class="scene-picker" for="sceneSelect"><span>預錄場景</span><select id="sceneSelect"></select></label>
+        </div>
+        <div class="vision-layout">
+          <div>
+            <div id="visionFrame" class="vision-frame">
+              <img id="sceneImage" alt="預錄機械臂工作台場景">
+              <div id="detectionLayer" aria-label="偵測物件"></div>
+              <span class="camera-badge">MOCK CAMERA</span>
+            </div>
+            <p class="vision-help">點選偵測框只會建立計畫，不會移動機械臂。低於 80% 信心的物件不可規劃。</p>
+          </div>
+          <div class="plan-panel">
+            <div id="planEmpty" class="plan-empty">選取一個高信心物件以建立固定命名動作。</div>
+            <div id="planDetails" class="hidden">
+              <div class="plan-title"><span id="planObject">—</span><strong id="planConfidence">—</strong></div>
+              <p id="planRecipe" class="recipe-name">—</p>
+              <p class="plan-id">PLAN <code id="planId">—</code> · 5 分鐘有效</p>
+              <ol id="planSteps" class="plan-steps"></ol>
+              <label class="check confirm-plan"><input id="confirmPlanCheck" type="checkbox"><span>我已核對物件、目的地與全部關節步驟</span></label>
+              <button id="confirmPlanButton" class="secondary wide" type="button" disabled>人工確認此計畫</button>
+              <button id="executePlanButton" class="primary wide" type="button" disabled>執行命名動作（Mock）</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="events-card card">
         <div class="section-head">
           <div><p class="section-label">EVENT LOG</p><h2>最近事件</h2></div>
