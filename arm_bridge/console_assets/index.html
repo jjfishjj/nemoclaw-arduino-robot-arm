@@ -110,6 +110,40 @@
         </div>
       </section>
 
+      <section class="rgbd-card card">
+        <div class="section-head">
+          <div><p class="section-label">D2-A · REALSENSE BAG PLAYBACK</p><h2>RGB-D 座標檢查器</h2></div>
+          <span class="safe-note">READ-ONLY · NO MOTION</span>
+        </div>
+        <div class="rgbd-layout">
+          <div>
+            <div id="rgbdFrame" class="vision-frame rgbd-frame">
+              <img id="rgbdImage" alt="RealSense 錄製 RGB 畫面">
+              <button id="rgbdProbe" class="depth-probe" type="button" aria-label="目前深度取樣點"></button>
+              <span class="camera-badge">RECORDED RGB-D</span>
+            </div>
+            <label class="frame-control" for="rgbdFrameSlider"><span>回放幀</span><output id="rgbdFrameLabel">—</output></label>
+            <input id="rgbdFrameSlider" type="range" min="0" max="0" value="0" step="1" disabled>
+          </div>
+          <div class="coordinate-panel">
+            <p id="rgbdRecording" class="recipe-name">載入錄製 contract…</p>
+            <dl class="intrinsics-grid">
+              <div><dt>Resolution</dt><dd id="rgbdResolution">—</dd></div>
+              <div><dt>Focal</dt><dd id="rgbdFocal">—</dd></div>
+              <div><dt>Timestamp</dt><dd id="rgbdTimestamp">—</dd></div>
+              <div><dt>Frame</dt><dd id="rgbdIndex">—</dd></div>
+            </dl>
+            <div class="pixel-row">
+              <label for="pixelX">Pixel X<input id="pixelX" type="number" min="0" value="2"></label>
+              <label for="pixelY">Pixel Y<input id="pixelY" type="number" min="0" value="3"></label>
+            </div>
+            <button id="deprojectButton" class="secondary wide" type="button" disabled>轉換為相機座標</button>
+            <div id="coordinateResult" class="coordinate-result" aria-live="polite">選擇像素以讀取深度。</div>
+            <p class="vision-help">座標僅位於 camera_optical_frame；D2-C 完成前不可轉為機械臂動作。</p>
+          </div>
+        </div>
+      </section>
+
       <section class="events-card card">
         <div class="section-head">
           <div><p class="section-label">EVENT LOG</p><h2>最近事件</h2></div>

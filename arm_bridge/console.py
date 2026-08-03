@@ -16,6 +16,7 @@ from pathlib import Path
 from .core import SafetyError
 from .secure_server import load_token
 from .vision_flow import VisionFlow
+from .realsense_playback import default_playback
 
 
 ASSETS = Path(__file__).with_name("console_assets")
@@ -33,6 +34,7 @@ class ConsoleState:
         self.sessions: dict[str, float] = {}
         self.lock = threading.Lock()
         self.vision = VisionFlow()
+        self.playback = default_playback()
 
     def pair(self, code: str) -> str | None:
         with self.lock:
@@ -165,6 +167,10 @@ def make_console_handler(state: ConsoleState, port: int):
                 if not self._require_session():
                     return
                 return self._json(200, state.vision.scenes())
+            if self.path == "/api/realsense/recording":
+                if not self._require_session():
+                    return
+                return self._json(200, state.playback.metadata())
             self._json(404, {"ok": False, "error": "not found"})
 
         def do_POST(self) -> None:
@@ -196,6 +202,12 @@ def make_console_handler(state: ConsoleState, port: int):
                     return self._json(200, state.vision.execute(
                         str(body.get("plan_id", "")), status,
                         lambda payload: state.bridge_request("POST", "/command", payload),
+                    ))
+                if self.path == "/api/realsense/frame":
+                    return self._json(200, state.playback.frame(int(body.get("index", -1))))
+                if self.path == "/api/realsense/deproject":
+                    return self._json(200, state.playback.deproject(
+                        int(body.get("index", -1)), int(body.get("x", -1)), int(body.get("y", -1))
                     ))
                 if self.path != "/api/command":
                     return self._json(404, {"ok": False, "error": "not found"})

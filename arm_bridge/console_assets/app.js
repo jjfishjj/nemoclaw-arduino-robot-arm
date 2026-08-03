@@ -1,7 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const state = { paired: false, status: null, poll: null, scenes: [], scene: null, plan: null, planConfirmed: false };
+const state = { paired: false, status: null, poll: null, scenes: [], scene: null, plan: null, planConfirmed: false, rgbd: null, rgbdFrame: null };
 const pairingPanel = $('#pairingPanel');
 const consolePanel = $('#consolePanel');
 const toast = $('#toast');
@@ -42,8 +42,56 @@ function setPaired(paired) {
   if (paired) {
     refreshStatus();
     loadVisionScenes();
+    loadRGBDRecording();
     window.clearInterval(state.poll);
     state.poll = window.setInterval(refreshStatus, 1500);
+  }
+}
+
+async function loadRGBDRecording() {
+  try {
+    const result = await api('/api/realsense/recording');
+    state.rgbd = result;
+    $('#rgbdRecording').textContent = `${result.recording} · ${result.bag_name}`;
+    $('#rgbdResolution').textContent = `${result.intrinsics.width} × ${result.intrinsics.height}`;
+    $('#rgbdFocal').textContent = `${result.intrinsics.fx} / ${result.intrinsics.fy}`;
+    $('#pixelX').max = result.intrinsics.width - 1;
+    $('#pixelY').max = result.intrinsics.height - 1;
+    $('#rgbdFrameSlider').max = result.frame_count - 1;
+    $('#rgbdFrameSlider').disabled = false;
+    $('#deprojectButton').disabled = false;
+    await loadRGBDFrame(0);
+  } catch (error) { notify(error.message, true); }
+}
+
+async function loadRGBDFrame(index) {
+  try {
+    const result = await api('/api/realsense/frame', { method: 'POST', body: JSON.stringify({ index }) });
+    state.rgbdFrame = result.frame;
+    $('#rgbdImage').src = result.frame.color_asset;
+    $('#rgbdTimestamp').textContent = `${result.frame.timestamp_ms.toFixed(1)} ms`;
+    $('#rgbdIndex').textContent = `${result.frame.index + 1} / ${state.rgbd.frame_count}`;
+    $('#rgbdFrameLabel').textContent = `#${result.frame.index} · ${result.frame.timestamp_ms.toFixed(1)} ms`;
+    $('#coordinateResult').textContent = '選擇像素以讀取深度。';
+  } catch (error) { notify(error.message, true); }
+}
+
+function positionDepthProbe(x, y) {
+  $('#rgbdProbe').style.left = `${((x + .5) / state.rgbd.intrinsics.width) * 100}%`;
+  $('#rgbdProbe').style.top = `${((y + .5) / state.rgbd.intrinsics.height) * 100}%`;
+}
+
+async function deprojectPixel() {
+  const x = Number($('#pixelX').value); const y = Number($('#pixelY').value);
+  try {
+    const result = await api('/api/realsense/deproject', { method: 'POST', body: JSON.stringify({ index: state.rgbdFrame.index, x, y }) });
+    positionDepthProbe(x, y);
+    const point = result.camera_m;
+    $('#coordinateResult').textContent = `X ${point.x.toFixed(4)} m\nY ${point.y.toFixed(4)} m\nZ ${point.z.toFixed(4)} m\n${result.frame}`;
+    logEvent('RGB-D POINT', `px(${x},${y}) → Z ${point.z.toFixed(3)}m`);
+  } catch (error) {
+    $('#coordinateResult').textContent = `REJECTED · ${error.message}`;
+    notify(error.message, true); logEvent('RGB-D REJECT', error.message);
   }
 }
 
@@ -220,6 +268,15 @@ $('#duration').addEventListener('input', () => { $('#durationValue').textContent
 $('#refreshButton').addEventListener('click', refreshStatus);
 $('#clearLog').addEventListener('click', () => $('#eventLog').replaceChildren());
 $('#sceneSelect').addEventListener('change', () => showScene(state.scenes.find((scene) => scene.id === $('#sceneSelect').value)));
+$('#rgbdFrameSlider').addEventListener('input', () => loadRGBDFrame(Number($('#rgbdFrameSlider').value)));
+$('#deprojectButton').addEventListener('click', deprojectPixel);
+$('#rgbdFrame').addEventListener('click', (event) => {
+  if (!state.rgbd) return;
+  const rect = $('#rgbdFrame').getBoundingClientRect();
+  $('#pixelX').value = Math.min(state.rgbd.intrinsics.width - 1, Math.max(0, Math.floor((event.clientX - rect.left) / rect.width * state.rgbd.intrinsics.width)));
+  $('#pixelY').value = Math.min(state.rgbd.intrinsics.height - 1, Math.max(0, Math.floor((event.clientY - rect.top) / rect.height * state.rgbd.intrinsics.height)));
+  deprojectPixel();
+});
 $('#confirmPlanCheck').addEventListener('change', () => { $('#confirmPlanButton').disabled = !$('#confirmPlanCheck').checked || !state.plan; });
 $('#confirmPlanButton').addEventListener('click', async () => {
   try {
