@@ -144,6 +144,33 @@
         </div>
       </section>
 
+      <section class="live-card card">
+        <div class="section-head">
+          <div><p class="section-label">D2-B1 · LIVE RGB-D</p><h2>即時串流健康狀態</h2></div>
+          <div class="stream-state"><span id="liveDot" class="dot"></span><strong id="liveConnection">STOPPED</strong></div>
+        </div>
+        <div class="live-layout">
+          <div class="vision-frame live-frame">
+            <img id="liveImage" alt="RealSense 即時 RGB 畫面">
+            <span id="liveFreshBadge" class="camera-badge">NO FRAME</span>
+          </div>
+          <div class="live-panel">
+            <div class="status-grid live-metrics">
+              <div class="metric"><span>Backend</span><strong id="liveMode">—</strong></div>
+              <div class="metric"><span>FPS</span><strong id="liveFps">0.0</strong></div>
+              <div class="metric"><span>Frame age</span><strong id="liveAge">—</strong></div>
+              <div class="metric"><span>Reconnects</span><strong id="liveReconnects">0</strong></div>
+            </div>
+            <p id="liveError" class="stream-message">串流尚未啟動。</p>
+            <div class="action-grid">
+              <button id="liveStartButton" class="primary" type="button">START LIVE</button>
+              <button id="liveStopButton" class="secondary" type="button" disabled>STOP LIVE</button>
+            </div>
+            <p class="vision-help">Filter chain：NONE（D2-B2）· READ-ONLY · NO MOTION</p>
+          </div>
+        </div>
+      </section>
+
       <section class="events-card card">
         <div class="section-head">
           <div><p class="section-label">EVENT LOG</p><h2>最近事件</h2></div>

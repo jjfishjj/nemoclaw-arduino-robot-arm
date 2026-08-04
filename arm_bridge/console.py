@@ -17,6 +17,7 @@ from .core import SafetyError
 from .secure_server import load_token
 from .vision_flow import VisionFlow
 from .realsense_playback import default_playback
+from .realsense_live import LiveRGBDContract, RealSenseLiveSource, default_live
 
 
 ASSETS = Path(__file__).with_name("console_assets")
@@ -25,7 +26,7 @@ MAX_BODY_BYTES = 4096
 
 
 class ConsoleState:
-    def __init__(self, bridge_url: str, bridge_token: str, pairing_code: str):
+    def __init__(self, bridge_url: str, bridge_token: str, pairing_code: str, live: LiveRGBDContract | None = None):
         self.bridge_url = bridge_url.rstrip("/")
         self.bridge_token = bridge_token
         self.pairing_code = pairing_code
@@ -35,6 +36,7 @@ class ConsoleState:
         self.lock = threading.Lock()
         self.vision = VisionFlow()
         self.playback = default_playback()
+        self.live = live or default_live()
 
     def pair(self, code: str) -> str | None:
         with self.lock:
@@ -120,6 +122,15 @@ def make_console_handler(state: ConsoleState, port: int):
             self.end_headers()
             self.wfile.write(content)
 
+        def _bytes(self, content: bytes, content_type: str) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+
         def _session(self) -> str | None:
             cookie = SimpleCookie(self.headers.get("Cookie", ""))
             morsel = cookie.get("arm_console_session")
@@ -146,28 +157,40 @@ def make_console_handler(state: ConsoleState, port: int):
             return self.headers.get("Origin") in expected_origins
 
         def do_GET(self) -> None:
-            if self.path == "/":
+            path = self.path.partition("?")[0]
+            if path == "/":
                 return self._asset("index.html", "text/html; charset=utf-8")
-            if self.path == "/app.js":
+            if path == "/app.js":
                 return self._asset("app.js", "text/javascript; charset=utf-8")
-            if self.path == "/styles.css":
+            if path == "/styles.css":
                 return self._asset("styles.css", "text/css; charset=utf-8")
-            if self.path in {"/vision/bench-a.svg", "/vision/bench-b.svg"}:
-                return self._asset(self.path.removeprefix("/"), "image/svg+xml")
-            if self.path == "/api/session":
+            if path in {"/vision/bench-a.svg", "/vision/bench-b.svg"}:
+                return self._asset(path.removeprefix("/"), "image/svg+xml")
+            if path == "/api/session":
                 return self._json(200, {"ok": True, "paired": state.authenticated(self._session())})
-            if self.path == "/api/status":
+            if path == "/api/status":
                 if not self._require_session():
                     return
                 try:
                     return self._json(200, state.bridge_request("GET", "/status"))
                 except SafetyError as exc:
                     return self._json(502, {"ok": False, "error": str(exc)})
-            if self.path == "/api/vision/scenes":
+            if path == "/api/realsense/live/status":
+                if not self._require_session():
+                    return
+                return self._json(200, state.live.status())
+            if path == "/api/realsense/live/color.jpg":
+                if not self._require_session():
+                    return
+                try:
+                    return self._bytes(state.live.color_jpeg(), "image/jpeg")
+                except SafetyError as exc:
+                    return self._json(404, {"ok": False, "error": str(exc)})
+            if path == "/api/vision/scenes":
                 if not self._require_session():
                     return
                 return self._json(200, state.vision.scenes())
-            if self.path == "/api/realsense/recording":
+            if path == "/api/realsense/recording":
                 if not self._require_session():
                     return
                 return self._json(200, state.playback.metadata())
@@ -209,6 +232,13 @@ def make_console_handler(state: ConsoleState, port: int):
                     return self._json(200, state.playback.deproject(
                         int(body.get("index", -1)), int(body.get("x", -1)), int(body.get("y", -1))
                     ))
+                if self.path == "/api/realsense/live/start":
+                    return self._json(200, state.live.start())
+                if self.path == "/api/realsense/live/poll":
+                    result = state.live.poll()
+                    return self._json(200 if result["ok"] else 503, result)
+                if self.path == "/api/realsense/live/stop":
+                    return self._json(200, state.live.stop())
                 if self.path != "/api/command":
                     return self._json(404, {"ok": False, "error": "not found"})
                 command = body.get("command")
@@ -232,6 +262,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8780)
     parser.add_argument("--bridge-url", default="http://127.0.0.1:8765")
     parser.add_argument("--token-file")
+    parser.add_argument("--realsense-live", action="store_true", help="Use a connected RealSense instead of the CI live source")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("--port must be between 1024 and 65535")
@@ -240,7 +271,8 @@ def main() -> None:
     except (OSError, SafetyError) as exc:
         parser.error(str(exc))
     pairing_code = f"{secrets.randbelow(1_000_000):06d}"
-    state = ConsoleState(args.bridge_url, token, pairing_code)
+    live = LiveRGBDContract(RealSenseLiveSource()) if args.realsense_live else default_live()
+    state = ConsoleState(args.bridge_url, token, pairing_code, live)
     print(f"Robot arm console: http://127.0.0.1:{args.port}")
     print(f"One-time pairing code: {pairing_code}")
     ThreadingHTTPServer(

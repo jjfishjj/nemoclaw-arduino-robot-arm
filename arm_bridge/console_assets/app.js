@@ -1,7 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const state = { paired: false, status: null, poll: null, scenes: [], scene: null, plan: null, planConfirmed: false, rgbd: null, rgbdFrame: null };
+const state = { paired: false, status: null, poll: null, scenes: [], scene: null, plan: null, planConfirmed: false, rgbd: null, rgbdFrame: null, livePoll: null, liveFrame: null };
 const pairingPanel = $('#pairingPanel');
 const consolePanel = $('#consolePanel');
 const toast = $('#toast');
@@ -11,6 +11,49 @@ function notify(message, error = false) {
   toast.className = `show${error ? ' error' : ''}`;
   window.clearTimeout(notify.timer);
   notify.timer = window.setTimeout(() => { toast.className = ''; }, 3200);
+}
+
+function renderLiveStatus(status) {
+  $('#liveConnection').textContent = status.connected ? 'CONNECTED' : (status.running ? 'RECONNECTING' : 'STOPPED');
+  $('#liveDot').classList.toggle('online', status.connected);
+  $('#liveMode').textContent = status.mode;
+  $('#liveFps').textContent = status.fps.toFixed(1);
+  $('#liveAge').textContent = status.frame_age_ms === null ? '—' : `${status.frame_age_ms.toFixed(0)} ms`;
+  $('#liveReconnects').textContent = status.reconnect_count;
+  $('#liveFreshBadge').textContent = status.fresh ? 'FRESH RGB-D' : (status.frame_age_ms === null ? 'NO FRAME' : 'STALE FRAME');
+  $('#liveStartButton').disabled = status.running;
+  $('#liveStopButton').disabled = !status.running;
+  $('#liveError').textContent = status.last_error || (status.running ? 'Aligned color + depth stream active.' : '串流尚未啟動。');
+  $('#liveError').classList.toggle('error', Boolean(status.last_error));
+}
+
+async function startLive() {
+  try {
+    renderLiveStatus(await api('/api/realsense/live/start', { method: 'POST', body: '{}' }));
+    window.clearInterval(state.livePoll);
+    state.livePoll = window.setInterval(pollLive, 500);
+    await pollLive();
+    logEvent('LIVE START', 'RGB-D stream');
+  } catch (error) { notify(error.message, true); }
+}
+
+async function pollLive() {
+  try {
+    const result = await api('/api/realsense/live/poll', { method: 'POST', body: '{}' });
+    state.liveFrame = result.frame;
+    $('#liveImage').src = `${result.frame.color_asset}?frame=${result.frame.index}`;
+    renderLiveStatus(result.status);
+  } catch (error) {
+    try { renderLiveStatus(await api('/api/realsense/live/status')); } catch (_) { /* bridge status handles session loss */ }
+  }
+}
+
+async function stopLive() {
+  window.clearInterval(state.livePoll); state.livePoll = null;
+  try {
+    renderLiveStatus(await api('/api/realsense/live/stop', { method: 'POST', body: '{}' }));
+    logEvent('LIVE STOP', 'RGB-D stream');
+  } catch (error) { notify(error.message, true); }
 }
 
 function logEvent(action, detail = '完成') {
@@ -270,6 +313,8 @@ $('#clearLog').addEventListener('click', () => $('#eventLog').replaceChildren())
 $('#sceneSelect').addEventListener('change', () => showScene(state.scenes.find((scene) => scene.id === $('#sceneSelect').value)));
 $('#rgbdFrameSlider').addEventListener('input', () => loadRGBDFrame(Number($('#rgbdFrameSlider').value)));
 $('#deprojectButton').addEventListener('click', deprojectPixel);
+$('#liveStartButton').addEventListener('click', startLive);
+$('#liveStopButton').addEventListener('click', stopLive);
 $('#rgbdFrame').addEventListener('click', (event) => {
   if (!state.rgbd) return;
   const rect = $('#rgbdFrame').getBoundingClientRect();
