@@ -131,6 +131,9 @@ input[type="range"] { width: 100%; accent-color: var(--green); }
 .filter-stages { margin: 10px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .filter-stages li { padding: 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font: .68rem/1.55 ui-monospace, monospace; }
 .filter-stages strong { display: block; color: var(--text); margin-bottom: 4px; }
+.native-comparison { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font: .7rem/1.6 ui-monospace, monospace; }
+.native-comparison.pass { border-color: #2f6548; color: var(--green); }
+.native-comparison.warn { border-color: #725626; color: var(--amber); }
 #eventLog { margin: 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; }
 #eventLog li { display: grid; grid-template-columns: 84px 100px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(65, 101, 81, .28); color: var(--muted); font: .78rem ui-monospace, SFMono-Regular, Menlo, monospace; }
 #eventLog li strong { color: var(--text); }

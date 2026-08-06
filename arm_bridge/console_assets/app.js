@@ -79,6 +79,30 @@ async function applyFilterGraph() {
   }
 }
 
+function filterConfig() {
+  return {
+    decimation: { magnitude: Number($('#decimationMagnitude').value) },
+    spatial: { alpha: Number($('#spatialAlpha').value), iterations: Number($('#spatialIterations').value) },
+    temporal: { alpha: Number($('#temporalAlpha').value) },
+    hole_filling: { passes: Number($('#holePasses').value) },
+  };
+}
+
+async function compareNativeFilters() {
+  const panel = $('#nativeComparison');
+  try {
+    const result = await api('/api/realsense/filters/native-compare', { method: 'POST', body: JSON.stringify({ index: Number($('#filterFrame').value), config: filterConfig() }) });
+    const d = result.deltas;
+    const verification = result.verified_native ? 'NATIVE VERIFIED' : 'SDK CONTRACT FIXTURE · NOT NATIVE VERIFIED';
+    panel.textContent = `${verification}\n${result.native.backend}\ninvalid Δ ${(d.invalid_ratio_delta * 100).toFixed(2)}% · mean depth Δ ${d.mean_depth_delta_m.toFixed(4)}m · roughness Δ ${d.roughness_delta_m.toFixed(4)}m\n${result.within_limits ? 'WITHIN PARITY LIMITS' : 'OUTSIDE PARITY LIMITS'}`;
+    panel.className = `native-comparison ${result.within_limits ? (result.verified_native ? 'pass' : 'warn') : 'warn'}`;
+    logEvent('SDK PARITY', verification);
+  } catch (error) {
+    panel.textContent = `REJECTED · ${error.message}`; panel.className = 'native-comparison warn';
+    notify(error.message, true); logEvent('SDK REJECT', error.message);
+  }
+}
+
 function logEvent(action, detail = '完成') {
   const item = document.createElement('li');
   const now = new Date().toLocaleTimeString('zh-TW', { hour12: false });
@@ -339,6 +363,7 @@ $('#deprojectButton').addEventListener('click', deprojectPixel);
 $('#liveStartButton').addEventListener('click', startLive);
 $('#liveStopButton').addEventListener('click', stopLive);
 $('#applyFiltersButton').addEventListener('click', applyFilterGraph);
+$('#compareNativeButton').addEventListener('click', compareNativeFilters);
 $('#rgbdFrame').addEventListener('click', (event) => {
   if (!state.rgbd) return;
   const rect = $('#rgbdFrame').getBoundingClientRect();

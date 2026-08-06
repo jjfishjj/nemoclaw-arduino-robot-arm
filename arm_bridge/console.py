@@ -19,6 +19,9 @@ from .vision_flow import VisionFlow
 from .realsense_playback import default_playback
 from .realsense_live import LiveRGBDContract, RealSenseLiveSource, default_live
 from .depth_filter_graph import FilterGraphContract
+from .librealsense_filters import (
+    LibrealsenseBagRunner, NativeParityContract, SDKContractFixtureRunner,
+)
 
 
 ASSETS = Path(__file__).with_name("console_assets")
@@ -27,7 +30,7 @@ MAX_BODY_BYTES = 4096
 
 
 class ConsoleState:
-    def __init__(self, bridge_url: str, bridge_token: str, pairing_code: str, live: LiveRGBDContract | None = None):
+    def __init__(self, bridge_url: str, bridge_token: str, pairing_code: str, live: LiveRGBDContract | None = None, native_runner=None):
         self.bridge_url = bridge_url.rstrip("/")
         self.bridge_token = bridge_token
         self.pairing_code = pairing_code
@@ -39,6 +42,9 @@ class ConsoleState:
         self.playback = default_playback()
         self.live = live or default_live()
         self.filters = FilterGraphContract()
+        self.native_parity = NativeParityContract(
+            self.playback.source, native_runner or SDKContractFixtureRunner(self.playback.source)
+        )
 
     def pair(self, code: str) -> str | None:
         with self.lock:
@@ -245,6 +251,10 @@ def make_console_handler(state: ConsoleState, port: int):
                     return self._json(200, state.filters.run(
                         state.playback.source, int(body.get("index", -1)), body.get("config")
                     ))
+                if self.path == "/api/realsense/filters/native-compare":
+                    return self._json(200, state.native_parity.compare(
+                        int(body.get("index", -1)), body.get("config")
+                    ))
                 if self.path != "/api/command":
                     return self._json(404, {"ok": False, "error": "not found"})
                 command = body.get("command")
@@ -269,6 +279,7 @@ def main() -> None:
     parser.add_argument("--bridge-url", default="http://127.0.0.1:8765")
     parser.add_argument("--token-file")
     parser.add_argument("--realsense-live", action="store_true", help="Use a connected RealSense instead of the CI live source")
+    parser.add_argument("--realsense-bag", help="Absolute .bag path for native SDK filter comparison")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("--port must be between 1024 and 65535")
@@ -278,7 +289,8 @@ def main() -> None:
         parser.error(str(exc))
     pairing_code = f"{secrets.randbelow(1_000_000):06d}"
     live = LiveRGBDContract(RealSenseLiveSource()) if args.realsense_live else default_live()
-    state = ConsoleState(args.bridge_url, token, pairing_code, live)
+    native_runner = LibrealsenseBagRunner(args.realsense_bag) if args.realsense_bag else None
+    state = ConsoleState(args.bridge_url, token, pairing_code, live, native_runner)
     print(f"Robot arm console: http://127.0.0.1:{args.port}")
     print(f"One-time pairing code: {pairing_code}")
     ThreadingHTTPServer(
