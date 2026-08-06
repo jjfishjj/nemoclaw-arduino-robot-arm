@@ -171,6 +171,31 @@
         </div>
       </section>
 
+      <section class="filter-card card">
+        <div class="section-head">
+          <div><p class="section-label">B2-A · REPRODUCIBLE FILTER GRAPH</p><h2>深度濾波測試台</h2></div>
+          <span class="safe-note">FIXED ORDER · NO MOTION</span>
+        </div>
+        <div class="filter-order" aria-label="濾波順序">
+          <span>1 · DECIMATION</span><i>→</i><span>2 · SPATIAL</span><i>→</i><span>3 · TEMPORAL</span><i>→</i><span>4 · HOLE FILLING</span>
+        </div>
+        <div class="filter-layout">
+          <div class="filter-controls">
+            <label for="filterFrame">Fixture frame<select id="filterFrame"><option value="0">#0</option><option value="1">#1</option><option value="2" selected>#2</option></select></label>
+            <label for="decimationMagnitude">Decimation<select id="decimationMagnitude"><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select></label>
+            <label for="spatialAlpha">Spatial α<input id="spatialAlpha" type="number" min="0" max="1" step="0.1" value="0.5"></label>
+            <label for="spatialIterations">Spatial iterations<input id="spatialIterations" type="number" min="1" max="5" value="2"></label>
+            <label for="temporalAlpha">Temporal α<input id="temporalAlpha" type="number" min="0" max="1" step="0.1" value="0.4"></label>
+            <label for="holePasses">Hole passes<input id="holePasses" type="number" min="0" max="3" value="1"></label>
+            <button id="applyFiltersButton" class="primary wide" type="button">執行固定 Filter Graph</button>
+          </div>
+          <div>
+            <div id="filterSummary" class="filter-summary">等待執行 fixture。</div>
+            <ol id="filterStages" class="filter-stages"></ol>
+          </div>
+        </div>
+      </section>
+
       <section class="events-card card">
         <div class="section-head">
           <div><p class="section-label">EVENT LOG</p><h2>最近事件</h2></div>

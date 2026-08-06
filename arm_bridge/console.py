@@ -18,6 +18,7 @@ from .secure_server import load_token
 from .vision_flow import VisionFlow
 from .realsense_playback import default_playback
 from .realsense_live import LiveRGBDContract, RealSenseLiveSource, default_live
+from .depth_filter_graph import FilterGraphContract
 
 
 ASSETS = Path(__file__).with_name("console_assets")
@@ -37,6 +38,7 @@ class ConsoleState:
         self.vision = VisionFlow()
         self.playback = default_playback()
         self.live = live or default_live()
+        self.filters = FilterGraphContract()
 
     def pair(self, code: str) -> str | None:
         with self.lock:
@@ -239,6 +241,10 @@ def make_console_handler(state: ConsoleState, port: int):
                     return self._json(200 if result["ok"] else 503, result)
                 if self.path == "/api/realsense/live/stop":
                     return self._json(200, state.live.stop())
+                if self.path == "/api/realsense/filters/apply":
+                    return self._json(200, state.filters.run(
+                        state.playback.source, int(body.get("index", -1)), body.get("config")
+                    ))
                 if self.path != "/api/command":
                     return self._json(404, {"ok": False, "error": "not found"})
                 command = body.get("command")

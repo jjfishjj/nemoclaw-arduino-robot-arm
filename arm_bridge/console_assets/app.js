@@ -56,6 +56,29 @@ async function stopLive() {
   } catch (error) { notify(error.message, true); }
 }
 
+async function applyFilterGraph() {
+  const config = {
+    decimation: { magnitude: Number($('#decimationMagnitude').value) },
+    spatial: { alpha: Number($('#spatialAlpha').value), iterations: Number($('#spatialIterations').value) },
+    temporal: { alpha: Number($('#temporalAlpha').value) },
+    hole_filling: { passes: Number($('#holePasses').value) },
+  };
+  try {
+    const result = await api('/api/realsense/filters/apply', { method: 'POST', body: JSON.stringify({ index: Number($('#filterFrame').value), config }) });
+    $('#filterSummary').textContent = `OUTPUT ${result.output.width}×${result.output.height} · invalid ${(result.output.invalid_ratio * 100).toFixed(1)}% · roughness ${result.output.roughness_m.toFixed(5)}m · ${result.processing_ms.toFixed(3)}ms · ${result.output.fingerprint}`;
+    $('#filterStages').replaceChildren(...result.stages.map((stage, index) => {
+      const item = document.createElement('li');
+      const title = document.createElement('strong'); title.textContent = `${index + 1} · ${stage.name.toUpperCase()}`;
+      const detail = document.createElement('span'); detail.textContent = `${stage.width}×${stage.height} · invalid ${(stage.invalid_ratio * 100).toFixed(1)}% · rough ${stage.roughness_m.toFixed(5)}m`;
+      item.append(title, detail); return item;
+    }));
+    logEvent('FILTER GRAPH', result.output.fingerprint);
+  } catch (error) {
+    $('#filterSummary').textContent = `REJECTED · ${error.message}`;
+    notify(error.message, true); logEvent('FILTER REJECT', error.message);
+  }
+}
+
 function logEvent(action, detail = '完成') {
   const item = document.createElement('li');
   const now = new Date().toLocaleTimeString('zh-TW', { hour12: false });
@@ -315,6 +338,7 @@ $('#rgbdFrameSlider').addEventListener('input', () => loadRGBDFrame(Number($('#r
 $('#deprojectButton').addEventListener('click', deprojectPixel);
 $('#liveStartButton').addEventListener('click', startLive);
 $('#liveStopButton').addEventListener('click', stopLive);
+$('#applyFiltersButton').addEventListener('click', applyFilterGraph);
 $('#rgbdFrame').addEventListener('click', (event) => {
   if (!state.rgbd) return;
   const rect = $('#rgbdFrame').getBoundingClientRect();
