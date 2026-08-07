@@ -146,7 +146,7 @@
 
       <section class="live-card card">
         <div class="section-head">
-          <div><p class="section-label">D2-B1 · LIVE RGB-D</p><h2>即時串流健康狀態</h2></div>
+          <div><p class="section-label">B2-B2A · LIVE NATIVE FILTERS</p><h2>即時濾波健康狀態</h2></div>
           <div class="stream-state"><span id="liveDot" class="dot"></span><strong id="liveConnection">STOPPED</strong></div>
         </div>
         <div class="live-layout">
@@ -157,7 +157,9 @@
           <div class="live-panel">
             <div class="status-grid live-metrics">
               <div class="metric"><span>Backend</span><strong id="liveMode">—</strong></div>
-              <div class="metric"><span>FPS</span><strong id="liveFps">0.0</strong></div>
+              <div class="metric"><span>Raw FPS</span><strong id="liveRawFps">0.0</strong></div>
+              <div class="metric"><span>Filtered FPS</span><strong id="liveFilteredFps">0.0</strong></div>
+              <div class="metric"><span>Filter latency</span><strong id="liveFilterLatency">—</strong></div>
               <div class="metric"><span>Frame age</span><strong id="liveAge">—</strong></div>
               <div class="metric"><span>Reconnects</span><strong id="liveReconnects">0</strong></div>
             </div>
@@ -166,7 +168,7 @@
               <button id="liveStartButton" class="primary" type="button">START LIVE</button>
               <button id="liveStopButton" class="secondary" type="button" disabled>STOP LIVE</button>
             </div>
-            <p class="vision-help">Filter chain：NONE（D2-B2）· READ-ONLY · NO MOTION</p>
+            <p id="liveFilterVerification" class="vision-help">DECIMATION → SPATIAL → TEMPORAL → HOLE FILLING · READ-ONLY · NO MOTION</p>
           </div>
         </div>
       </section>

@@ -16,8 +16,10 @@ function notify(message, error = false) {
 function renderLiveStatus(status) {
   $('#liveConnection').textContent = status.connected ? 'CONNECTED' : (status.running ? 'RECONNECTING' : 'STOPPED');
   $('#liveDot').classList.toggle('online', status.connected);
-  $('#liveMode').textContent = status.mode;
-  $('#liveFps').textContent = status.fps.toFixed(1);
+  $('#liveMode').textContent = status.filter_backend === 'pending' ? status.mode : status.filter_backend;
+  $('#liveRawFps').textContent = status.raw_fps.toFixed(1);
+  $('#liveFilteredFps').textContent = status.filtered_fps.toFixed(1);
+  $('#liveFilterLatency').textContent = status.filter_latency_ms === null ? '—' : `${status.filter_latency_ms.toFixed(3)} ms`;
   $('#liveAge').textContent = status.frame_age_ms === null ? '—' : `${status.frame_age_ms.toFixed(0)} ms`;
   $('#liveReconnects').textContent = status.reconnect_count;
   $('#liveFreshBadge').textContent = status.fresh ? 'FRESH RGB-D' : (status.frame_age_ms === null ? 'NO FRAME' : 'STALE FRAME');
@@ -25,6 +27,7 @@ function renderLiveStatus(status) {
   $('#liveStopButton').disabled = !status.running;
   $('#liveError').textContent = status.last_error || (status.running ? 'Aligned color + depth stream active.' : '串流尚未啟動。');
   $('#liveError').classList.toggle('error', Boolean(status.last_error));
+  $('#liveFilterVerification').textContent = `${status.filters.join(' → ').toUpperCase()} · ${status.verified_native ? 'NATIVE SDK VERIFIED' : 'CONTRACT FIXTURE — NOT NATIVE'} · NO MOTION`;
 }
 
 async function startLive() {

@@ -12,7 +12,14 @@ def test_live_stream_start_poll_metrics_and_stop():
     assert first["frame"]["depth_unit"] == "meter"
     assert second["status"]["fps"] == 25.0
     assert second["status"]["fresh"] is True
-    assert second["status"]["filters"] == []
+    assert second["status"]["raw_fps"] == 25.0
+    assert second["status"]["filtered_fps"] == 25.0
+    assert second["status"]["filters"] == ["decimation", "spatial", "temporal", "hole_filling"]
+    assert second["status"]["filter_backend"] == "sdk-contract-fixture"
+    assert second["status"]["verified_native"] is False
+    assert second["status"]["filter_latency_ms"] >= 0
+    assert second["status"]["raw_metrics"]["width"] == 8
+    assert second["status"]["filtered_metrics"]["width"] == 4
     assert second["status"]["motion_enabled"] is False
     assert live.stop()["running"] is False
 

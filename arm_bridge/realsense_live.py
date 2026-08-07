@@ -1,4 +1,4 @@
-"""D2-B1 live RGB-D stream contract with reconnect and freshness metrics."""
+"""B2-B2A live RGB-D stream with reproducible native filter telemetry."""
 
 from __future__ import annotations
 
@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from typing import Callable, Protocol
 
 from .core import SafetyError
+from .depth_filter_graph import (
+    DEFAULT_CONFIG, FILTER_ORDER, FilteredDepth, _config, _decimate,
+    _fill_holes, _metrics, _spatial, _temporal,
+)
+from .librealsense_filters import option_plan
 from .realsense_playback import CameraIntrinsics, RGBDFrame
 
 
@@ -22,6 +27,11 @@ class LiveCapture:
     frame: RGBDFrame
     captured_at: float
     color_jpeg: bytes | None = None
+    raw_metrics: dict | None = None
+    filtered_metrics: dict | None = None
+    filter_latency_ms: float = 0.0
+    filter_backend: str = "unfiltered"
+    verified_native: bool = False
 
 
 class LiveSource(Protocol):
@@ -38,14 +48,19 @@ class MockLiveSource:
     name = "RealSense live CI source"
     mode = "mock-live"
 
-    def __init__(self, now: Callable[[], float] = time.monotonic, fail_reads: set[int] | None = None):
+    def __init__(self, now: Callable[[], float] = time.monotonic, fail_reads: set[int] | None = None,
+                 clock: Callable[[], float] = time.perf_counter):
         self.now = now
         self.fail_reads = fail_reads or set()
         self.read_count = 0
         self.running = False
         self.intrinsics = CameraIntrinsics(8, 6, 7.5, 7.5, 3.5, 2.5)
+        self.clock = clock
+        self.params = _config(DEFAULT_CONFIG)
+        self.previous: FilteredDepth | None = None
 
     def start(self) -> None:
+        self.previous = None
         self.running = True
 
     def stop(self) -> None:
@@ -67,7 +82,23 @@ class MockLiveSource:
             depth_m=rows,
         )
         frame.validate()
-        return LiveCapture(frame, self.now())
+        started = self.clock()
+        decimated = _decimate(frame, self.params["decimation"]["magnitude"])
+        spatial = _spatial(decimated, **self.params["spatial"])
+        temporal = _temporal(spatial, self.previous, self.params["temporal"]["alpha"])
+        filtered = _fill_holes(temporal, self.params["hole_filling"]["passes"])
+        self.previous = temporal
+        latency = max(0.0, (self.clock() - started) * 1000)
+        output = RGBDFrame(
+            frame.index, frame.timestamp_ms, frame.color_asset,
+            filtered.intrinsics, filtered.depth_m,
+        )
+        output.validate()
+        return LiveCapture(
+            output, self.now(), raw_metrics=_metrics(frame.depth_m),
+            filtered_metrics=_metrics(filtered.depth_m), filter_latency_ms=round(latency, 3),
+            filter_backend="sdk-contract-fixture", verified_native=False,
+        )
 
 
 class RealSenseLiveSource:
@@ -86,6 +117,14 @@ class RealSenseLiveSource:
         self.pipeline = None
         self.align = rs.align(rs.stream.color)
         self.sequence = 0
+        self.blocks = []
+        self.depth_scale = None
+
+    def _set(self, block, option_name: str, value: float) -> None:
+        option = getattr(self.rs.option, option_name)
+        if not block.supports(option):
+            raise SafetyError(f"librealsense live filter does not support {option_name}")
+        block.set_option(option, float(value))
 
     def start(self) -> None:
         if self.pipeline is not None:
@@ -94,13 +133,28 @@ class RealSenseLiveSource:
         config = self.rs.config()
         config.enable_stream(self.rs.stream.depth, 640, 480, self.rs.format.z16, 30)
         config.enable_stream(self.rs.stream.color, 640, 480, self.rs.format.rgb8, 30)
-        pipeline.start(config)
-        self.pipeline = pipeline
+        profile = pipeline.start(config)
+        try:
+            blocks = [
+                self.rs.decimation_filter(), self.rs.spatial_filter(),
+                self.rs.temporal_filter(), self.rs.hole_filling_filter(),
+            ]
+            for block, stage in zip(blocks, option_plan(DEFAULT_CONFIG), strict=True):
+                for option_name, value in stage["options"].items():
+                    self._set(block, option_name, value)
+            self.depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
+            self.blocks = blocks
+            self.pipeline = pipeline
+        except Exception:
+            pipeline.stop()
+            raise
 
     def stop(self) -> None:
         if self.pipeline is not None:
             self.pipeline.stop()
             self.pipeline = None
+        self.blocks = []
+        self.depth_scale = None
 
     def read(self) -> LiveCapture:
         if self.pipeline is None:
@@ -111,18 +165,33 @@ class RealSenseLiveSource:
             depth = frames.get_depth_frame()
             if not color or not depth:
                 raise SafetyError("live frame is missing aligned color or depth")
-            intr = depth.profile.as_video_stream_profile().intrinsics
+            if self.depth_scale is None or not self.blocks:
+                raise SafetyError("live native filter graph is not initialized")
+            import numpy as np
+            raw_array = np.asanyarray(depth.get_data()).astype(np.float32) * self.depth_scale
+            raw_rows = tuple(tuple(float(value) for value in row) for row in raw_array)
+            started = time.perf_counter()
+            filtered = depth
+            for block in self.blocks:
+                filtered = block.process(filtered)
+            latency = (time.perf_counter() - started) * 1000
+            intr = filtered.profile.as_video_stream_profile().intrinsics
             camera = CameraIntrinsics(intr.width, intr.height, intr.fx, intr.fy, intr.ppx, intr.ppy)
-            rows = tuple(tuple(depth.get_distance(x, y) for x in range(intr.width)) for y in range(intr.height))
+            filtered_array = np.asanyarray(filtered.get_data()).astype(np.float32) * self.depth_scale
+            rows = tuple(tuple(float(value) for value in row) for row in filtered_array)
             from PIL import Image
-            image = Image.frombytes("RGB", (intr.width, intr.height), bytes(color.get_data()))
+            color_intr = color.profile.as_video_stream_profile().intrinsics
+            image = Image.frombytes("RGB", (color_intr.width, color_intr.height), bytes(color.get_data()))
             encoded = io.BytesIO()
             image.save(encoded, format="JPEG", quality=82)
             frame = RGBDFrame(self.sequence, frames.get_timestamp(), "/api/realsense/live/color.jpg", camera, rows)
             self.sequence += 1
             frame.validate()
-            return LiveCapture(frame, self.now(), encoded.getvalue())
-        except RuntimeError as exc:
+            return LiveCapture(
+                frame, self.now(), encoded.getvalue(), _metrics(raw_rows), _metrics(rows),
+                round(latency, 3), "librealsense-live-native", True,
+            )
+        except (RuntimeError, ValueError) as exc:
             raise SafetyError(f"RealSense live read failed: {exc}") from exc
 
 
@@ -135,7 +204,8 @@ class LiveRGBDContract:
         self.reconnect_count = 0
         self.last_error: str | None = None
         self.latest: LiveCapture | None = None
-        self.frame_times: deque[float] = deque(maxlen=30)
+        self.raw_frame_times: deque[float] = deque(maxlen=30)
+        self.filtered_frame_times: deque[float] = deque(maxlen=30)
         self.lock = threading.RLock()
 
     def start(self) -> dict:
@@ -152,7 +222,8 @@ class LiveRGBDContract:
             self.source.stop()
             self.running = False
             self.connected = False
-            self.frame_times.clear()
+            self.raw_frame_times.clear()
+            self.filtered_frame_times.clear()
             return self.status()
 
     def poll(self) -> dict:
@@ -165,7 +236,8 @@ class LiveRGBDContract:
                 self.latest = capture
                 self.connected = True
                 self.last_error = None
-                self.frame_times.append(capture.captured_at)
+                self.raw_frame_times.append(capture.captured_at)
+                self.filtered_frame_times.append(self.now())
                 return {"ok": True, "frame": self._frame_payload(capture), "status": self.status()}
             except Exception as exc:
                 self.connected = False
@@ -178,11 +250,11 @@ class LiveRGBDContract:
                     self.last_error = f"{self.last_error}; reconnect failed: {reconnect_exc}"
                 return {"ok": False, "error": self.last_error, "status": self.status()}
 
-    def _fps(self) -> float:
-        if len(self.frame_times) < 2:
+    def _fps(self, times: deque[float]) -> float:
+        if len(times) < 2:
             return 0.0
-        span = self.frame_times[-1] - self.frame_times[0]
-        return 0.0 if span <= 0 else round((len(self.frame_times) - 1) / span, 1)
+        span = times[-1] - times[0]
+        return 0.0 if span <= 0 else round((len(times) - 1) / span, 1)
 
     def _age_ms(self) -> float | None:
         if self.latest is None:
@@ -192,19 +264,30 @@ class LiveRGBDContract:
     def status(self) -> dict:
         with self.lock:
             age = self._age_ms()
+            raw_fps = self._fps(self.raw_frame_times)
+            filtered_fps = self._fps(self.filtered_frame_times)
+            latest = self.latest
             return {
                 "ok": True,
                 "running": self.running,
                 "connected": self.connected,
                 "source": self.source.name,
                 "mode": self.source.mode,
-                "fps": self._fps(),
+                "fps": filtered_fps,
+                "raw_fps": raw_fps,
+                "filtered_fps": filtered_fps,
+                "filter_latency_ms": latest.filter_latency_ms if latest else None,
+                "filter_backend": latest.filter_backend if latest else "pending",
+                "verified_native": latest.verified_native if latest else False,
+                "raw_metrics": latest.raw_metrics if latest else None,
+                "filtered_metrics": latest.filtered_metrics if latest else None,
                 "frame_age_ms": age,
                 "fresh": age is not None and age <= FRESH_FRAME_MS and self.connected,
                 "freshness_limit_ms": FRESH_FRAME_MS,
                 "reconnect_count": self.reconnect_count,
                 "last_error": self.last_error,
-                "filters": [],
+                "filters": list(FILTER_ORDER),
+                "filter_options": option_plan(DEFAULT_CONFIG),
                 "motion_enabled": False,
             }
 
