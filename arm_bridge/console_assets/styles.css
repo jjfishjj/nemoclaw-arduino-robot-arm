@@ -112,6 +112,12 @@ input[type="range"] { width: 100%; accent-color: var(--green); }
 .pixel-row input { width: 100%; color: var(--text); background: #07120d; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 .coordinate-result { margin-top: 12px; min-height: 78px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font: .78rem/1.65 ui-monospace, monospace; }
 .stream-state { display: flex; align-items: center; gap: 9px; color: var(--muted); font: .72rem ui-monospace, monospace; }
+.live-state-stack { display: grid; justify-items: end; gap: 8px; }
+.health-badge { padding: 7px 10px; border: 1px solid; border-radius: 7px; font: 800 .7rem ui-monospace, monospace; letter-spacing: .12em; }
+.health-badge.healthy { color: var(--green); border-color: #2f6548; background: rgba(118, 240, 167, .08); }
+.health-badge.degraded { color: var(--amber); border-color: #725626; background: rgba(255, 198, 109, .08); }
+.health-badge.blocked { color: #ffb4b6; border-color: #8b3539; background: rgba(255, 92, 98, .08); }
+.health-reason { margin: 0; color: var(--muted); font: .68rem/1.5 ui-monospace, monospace; text-transform: uppercase; }
 .live-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 18px; }
 .live-frame { min-height: 300px; }
 .live-frame img { display: block; width: 100%; min-height: 300px; object-fit: cover; }

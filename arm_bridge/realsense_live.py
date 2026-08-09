@@ -20,6 +20,56 @@ from .realsense_playback import CameraIntrinsics, RGBDFrame
 
 
 FRESH_FRAME_MS = 1000.0
+FRAME_HEALTH_LIMITS = {
+    "healthy": {"min_fps": 1.5, "max_latency_ms": 20.0, "max_age_ms": 750.0, "max_invalid_ratio": 0.10},
+    "blocked": {"min_fps": 0.5, "max_latency_ms": 100.0, "max_age_ms": 1000.0, "max_invalid_ratio": 0.50},
+}
+
+
+def evaluate_frame_health(*, running: bool, connected: bool, sample_count: int,
+                          raw_fps: float, filtered_fps: float,
+                          latency_ms: float | None, age_ms: float | None,
+                          invalid_ratio: float | None) -> dict:
+    """Classify live depth health without ever authorizing robot motion."""
+    observed = {
+        "fps": min(raw_fps, filtered_fps),
+        "raw_fps": raw_fps,
+        "filtered_fps": filtered_fps,
+        "latency_ms": latency_ms,
+        "age_ms": age_ms,
+        "invalid_ratio": invalid_ratio,
+    }
+    if not running:
+        return {"state": "BLOCKED", "reasons": ["stream_stopped"], "observed": observed}
+    if not connected:
+        return {"state": "BLOCKED", "reasons": ["camera_disconnected"], "observed": observed}
+    if latency_ms is None or age_ms is None or invalid_ratio is None:
+        return {"state": "BLOCKED", "reasons": ["frame_metrics_missing"], "observed": observed}
+
+    blocked, degraded = [], []
+    fps = observed["fps"]
+    hard = FRAME_HEALTH_LIMITS["blocked"]
+    soft = FRAME_HEALTH_LIMITS["healthy"]
+    if sample_count < 2:
+        degraded.append("fps_warming_up")
+    elif fps < hard["min_fps"]:
+        blocked.append("fps_critical")
+    elif fps < soft["min_fps"]:
+        degraded.append("fps_low")
+    if latency_ms > hard["max_latency_ms"]:
+        blocked.append("latency_critical")
+    elif latency_ms > soft["max_latency_ms"]:
+        degraded.append("latency_high")
+    if age_ms > hard["max_age_ms"]:
+        blocked.append("frame_stale")
+    elif age_ms > soft["max_age_ms"]:
+        degraded.append("frame_aging")
+    if invalid_ratio > hard["max_invalid_ratio"]:
+        blocked.append("invalid_depth_critical")
+    elif invalid_ratio > soft["max_invalid_ratio"]:
+        degraded.append("invalid_depth_high")
+    state = "BLOCKED" if blocked else ("DEGRADED" if degraded else "HEALTHY")
+    return {"state": state, "reasons": blocked or degraded or ["within_limits"], "observed": observed}
 
 
 @dataclass(frozen=True)
@@ -267,6 +317,17 @@ class LiveRGBDContract:
             raw_fps = self._fps(self.raw_frame_times)
             filtered_fps = self._fps(self.filtered_frame_times)
             latest = self.latest
+            invalid_ratio = (
+                latest.filtered_metrics.get("invalid_ratio")
+                if latest and latest.filtered_metrics else None
+            )
+            health = evaluate_frame_health(
+                running=self.running, connected=self.connected,
+                sample_count=min(len(self.raw_frame_times), len(self.filtered_frame_times)),
+                raw_fps=raw_fps, filtered_fps=filtered_fps,
+                latency_ms=latest.filter_latency_ms if latest else None,
+                age_ms=age, invalid_ratio=invalid_ratio,
+            )
             return {
                 "ok": True,
                 "running": self.running,
@@ -281,6 +342,7 @@ class LiveRGBDContract:
                 "verified_native": latest.verified_native if latest else False,
                 "raw_metrics": latest.raw_metrics if latest else None,
                 "filtered_metrics": latest.filtered_metrics if latest else None,
+                "frame_health": {**health, "limits": FRAME_HEALTH_LIMITS},
                 "frame_age_ms": age,
                 "fresh": age is not None and age <= FRESH_FRAME_MS and self.connected,
                 "freshness_limit_ms": FRESH_FRAME_MS,

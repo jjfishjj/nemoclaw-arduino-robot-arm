@@ -146,8 +146,11 @@
 
       <section class="live-card card">
         <div class="section-head">
-          <div><p class="section-label">B2-B2A · LIVE NATIVE FILTERS</p><h2>即時濾波健康狀態</h2></div>
-          <div class="stream-state"><span id="liveDot" class="dot"></span><strong id="liveConnection">STOPPED</strong></div>
+          <div><p class="section-label">B2-B2B · NATIVE FRAME HEALTH GATE</p><h2>即時濾波健康閘門</h2></div>
+          <div class="live-state-stack">
+            <span id="liveHealth" class="health-badge blocked">BLOCKED</span>
+            <div class="stream-state"><span id="liveDot" class="dot"></span><strong id="liveConnection">STOPPED</strong></div>
+          </div>
         </div>
         <div class="live-layout">
           <div class="vision-frame live-frame">
@@ -163,6 +166,7 @@
               <div class="metric"><span>Frame age</span><strong id="liveAge">—</strong></div>
               <div class="metric"><span>Reconnects</span><strong id="liveReconnects">0</strong></div>
             </div>
+            <p id="liveHealthReason" class="health-reason">STREAM_STOPPED · motion remains disabled</p>
             <p id="liveError" class="stream-message">串流尚未啟動。</p>
             <div class="action-grid">
               <button id="liveStartButton" class="primary" type="button">START LIVE</button>
