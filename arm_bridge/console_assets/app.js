@@ -1,7 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const state = { paired: false, status: null, poll: null, scenes: [], scene: null, plan: null, planConfirmed: false, rgbd: null, rgbdFrame: null, livePoll: null, liveFrame: null };
+const state = { paired: false, status: null, poll: null, scenes: [], scene: null, plan: null, planConfirmed: false, rgbd: null, rgbdFrame: null, livePoll: null, liveFrame: null, depthView: 'raw' };
 const pairingPanel = $('#pairingPanel');
 const consolePanel = $('#consolePanel');
 const toast = $('#toast');
@@ -34,6 +34,20 @@ function renderLiveStatus(status) {
   $('#liveFilterVerification').textContent = `${status.filters.join(' → ').toUpperCase()} · ${status.verified_native ? 'NATIVE SDK VERIFIED' : 'CONTRACT FIXTURE — NOT NATIVE'} · NO MOTION`;
 }
 
+function renderDepthVisual() {
+  const filtered = state.depthView === 'filtered';
+  $('#depthRawButton').classList.toggle('active', !filtered);
+  $('#depthFilteredButton').classList.toggle('active', filtered);
+  $('#depthRawButton').setAttribute('aria-pressed', String(!filtered));
+  $('#depthFilteredButton').setAttribute('aria-pressed', String(filtered));
+  $('#depthViewTitle').textContent = filtered ? 'FILTERED DEPTH HEATMAP' : 'RAW DEPTH HEATMAP';
+  $('#depthVisualImage').alt = `${filtered ? 'Filtered' : 'Raw'} depth heatmap${$('#depthMaskToggle').checked ? ' with invalid depth mask' : ''}`;
+  if (!state.liveFrame) return;
+  const mask = $('#depthMaskToggle').checked ? '1' : '0';
+  $('#depthVisualImage').src = `/api/realsense/live/depth.png?view=${state.depthView}&mask=${mask}&frame=${state.liveFrame.index}`;
+  $('#depthVisualEmpty').classList.add('hidden');
+}
+
 async function startLive() {
   try {
     renderLiveStatus(await api('/api/realsense/live/start', { method: 'POST', body: '{}' }));
@@ -49,6 +63,7 @@ async function pollLive() {
     const result = await api('/api/realsense/live/poll', { method: 'POST', body: '{}' });
     state.liveFrame = result.frame;
     $('#liveImage').src = `${result.frame.color_asset}?frame=${result.frame.index}`;
+    renderDepthVisual();
     renderLiveStatus(result.status);
   } catch (error) {
     try { renderLiveStatus(await api('/api/realsense/live/status')); } catch (_) { /* bridge status handles session loss */ }
@@ -62,6 +77,10 @@ async function stopLive() {
     logEvent('LIVE STOP', 'RGB-D stream');
   } catch (error) { notify(error.message, true); }
 }
+
+$('#depthRawButton').addEventListener('click', () => { state.depthView = 'raw'; renderDepthVisual(); });
+$('#depthFilteredButton').addEventListener('click', () => { state.depthView = 'filtered'; renderDepthVisual(); });
+$('#depthMaskToggle').addEventListener('change', renderDepthVisual);
 
 async function applyFilterGraph() {
   const config = {

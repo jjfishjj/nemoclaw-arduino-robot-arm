@@ -9,6 +9,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import parse_qs, urlsplit
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -165,7 +166,8 @@ def make_console_handler(state: ConsoleState, port: int):
             return self.headers.get("Origin") in expected_origins
 
         def do_GET(self) -> None:
-            path = self.path.partition("?")[0]
+            parsed = urlsplit(self.path)
+            path = parsed.path
             if path == "/":
                 return self._asset("index.html", "text/html; charset=utf-8")
             if path == "/app.js":
@@ -192,6 +194,16 @@ def make_console_handler(state: ConsoleState, port: int):
                     return
                 try:
                     return self._bytes(state.live.color_jpeg(), "image/jpeg")
+                except SafetyError as exc:
+                    return self._json(404, {"ok": False, "error": str(exc)})
+            if path == "/api/realsense/live/depth.png":
+                if not self._require_session():
+                    return
+                query = parse_qs(parsed.query)
+                view = query.get("view", [""])[0]
+                mask = query.get("mask", ["1"])[0] != "0"
+                try:
+                    return self._bytes(state.live.depth_visual_png(view, mask), "image/png")
                 except SafetyError as exc:
                     return self._json(404, {"ok": False, "error": str(exc)})
             if path == "/api/vision/scenes":

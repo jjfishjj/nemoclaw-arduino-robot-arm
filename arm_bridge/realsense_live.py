@@ -82,6 +82,7 @@ class LiveCapture:
     filter_latency_ms: float = 0.0
     filter_backend: str = "unfiltered"
     verified_native: bool = False
+    raw_depth_m: tuple[tuple[float, ...], ...] | None = None
 
 
 class LiveSource(Protocol):
@@ -123,7 +124,10 @@ class MockLiveSource:
         if self.read_count in self.fail_reads:
             raise SafetyError("simulated RealSense disconnect")
         depth = 0.55 + (self.read_count % 3) * 0.002
-        rows = tuple(tuple(depth for _ in range(8)) for _ in range(6))
+        rows = tuple(
+            tuple(0.0 if (x, y) in {(3, 2), (6, 4)} else depth for x in range(8))
+            for y in range(6)
+        )
         frame = RGBDFrame(
             index=self.read_count - 1,
             timestamp_ms=self.now() * 1000,
@@ -147,7 +151,7 @@ class MockLiveSource:
         return LiveCapture(
             output, self.now(), raw_metrics=_metrics(frame.depth_m),
             filtered_metrics=_metrics(filtered.depth_m), filter_latency_ms=round(latency, 3),
-            filter_backend="sdk-contract-fixture", verified_native=False,
+            filter_backend="sdk-contract-fixture", verified_native=False, raw_depth_m=frame.depth_m,
         )
 
 
@@ -239,7 +243,7 @@ class RealSenseLiveSource:
             frame.validate()
             return LiveCapture(
                 frame, self.now(), encoded.getvalue(), _metrics(raw_rows), _metrics(rows),
-                round(latency, 3), "librealsense-live-native", True,
+                round(latency, 3), "librealsense-live-native", True, raw_rows,
             )
         except (RuntimeError, ValueError) as exc:
             raise SafetyError(f"RealSense live read failed: {exc}") from exc
@@ -372,6 +376,54 @@ class LiveRGBDContract:
             if self.latest is None or self.latest.color_jpeg is None:
                 raise SafetyError("no live JPEG frame is available")
             return self.latest.color_jpeg
+
+    def depth_visual_png(self, view: str, invalid_mask: bool = True) -> bytes:
+        with self.lock:
+            if self.latest is None:
+                raise SafetyError("no live depth frame is available")
+            if view == "raw":
+                depth = self.latest.raw_depth_m
+            elif view == "filtered":
+                depth = self.latest.frame.depth_m
+            else:
+                raise SafetyError("depth view must be raw or filtered")
+            if depth is None:
+                raise SafetyError(f"no {view} depth frame is available")
+            companion = self.latest.frame.depth_m if view == "raw" else self.latest.raw_depth_m
+            values = [
+                value for grid in (depth, companion or ()) for row in grid for value in row
+                if math.isfinite(value) and value > 0
+            ]
+            if not values:
+                raise SafetyError("live depth frame has no valid values")
+            low, high = min(values), max(values)
+            span = max(high - low, 1e-9)
+            pixels = []
+            for row in depth:
+                for value in row:
+                    if not math.isfinite(value) or value <= 0:
+                        pixels.append((255, 0, 170) if invalid_mask else (5, 8, 12))
+                        continue
+                    t = max(0.0, min(1.0, (value - low) / span))
+                    pixels.append(_heat_color(t))
+            from PIL import Image
+            image = Image.new("RGB", (len(depth[0]), len(depth)))
+            image.putdata(pixels)
+            if image.width != 640:
+                target_height = max(1, round(image.height * 640 / image.width))
+                image = image.resize((640, target_height), Image.Resampling.NEAREST)
+            encoded = io.BytesIO()
+            image.save(encoded, format="PNG", optimize=True)
+            return encoded.getvalue()
+
+
+def _heat_color(t: float) -> tuple[int, int, int]:
+    """Compact blue → cyan → yellow → red depth ramp."""
+    stops = ((20, 30, 160), (0, 210, 230), (245, 230, 65), (235, 55, 35))
+    position = t * (len(stops) - 1)
+    index = min(int(position), len(stops) - 2)
+    fraction = position - index
+    return tuple(round(a + (b - a) * fraction) for a, b in zip(stops[index], stops[index + 1]))
 
 
 def default_live() -> LiveRGBDContract:

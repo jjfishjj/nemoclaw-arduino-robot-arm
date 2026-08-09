@@ -175,6 +175,22 @@
             <p id="liveFilterVerification" class="vision-help">DECIMATION → SPATIAL → TEMPORAL → HOLE FILLING · READ-ONLY · NO MOTION</p>
           </div>
         </div>
+        <div class="depth-compare">
+          <div class="depth-compare-head">
+            <div><p class="section-label">B2-B2C · DEPTH VISUAL COMPARE</p><h3 id="depthViewTitle">RAW DEPTH HEATMAP</h3></div>
+            <div class="depth-controls" role="group" aria-label="Depth view">
+              <button id="depthRawButton" class="depth-toggle active" type="button" aria-pressed="true">BEFORE · RAW</button>
+              <button id="depthFilteredButton" class="depth-toggle" type="button" aria-pressed="false">AFTER · FILTERED</button>
+              <label class="mask-toggle"><input id="depthMaskToggle" type="checkbox" checked> Invalid mask</label>
+            </div>
+          </div>
+          <div class="depth-visual-frame">
+            <img id="depthVisualImage" alt="Raw depth heatmap with invalid depth mask">
+            <div id="depthVisualEmpty" class="depth-empty">START LIVE TO RENDER DEPTH</div>
+          </div>
+          <div class="depth-legend"><span>NEAR</span><i></i><span>FAR</span><b>■ INVALID</b></div>
+          <p class="vision-help">Raw 與 Filtered 共用同一色階；洋紅色代表 invalid depth。LOCAL SESSION · NO STORAGE · NO MOTION</p>
+        </div>
       </section>
 
       <section class="filter-card card">
