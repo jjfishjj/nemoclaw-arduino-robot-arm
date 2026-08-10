@@ -1,0 +1,52 @@
+name: RealSense native parity gate
+description: Validate native benchmark and Python/librealsense parity reports, then upload diagnostics.
+inputs:
+  benchmark-report:
+    description: Path to the B2-B3A benchmark comparison JSON.
+    required: true
+  parity-report:
+    description: Path to the B2-B1 native parity JSON.
+    required: true
+  output-dir:
+    description: Directory for gate JSON and Markdown artifacts.
+    required: false
+    default: artifacts/realsense-native-gate
+  artifact-name:
+    description: Uploaded artifact name.
+    required: false
+    default: realsense-native-gate
+runs:
+  using: composite
+  steps:
+    - id: gate
+      shell: bash
+      env:
+        BENCHMARK_REPORT: ${{ inputs.benchmark-report }}
+        PARITY_REPORT: ${{ inputs.parity-report }}
+        GATE_OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        set +e
+        python -m arm_bridge.realsense_ci_gate \
+          --benchmark "$BENCHMARK_REPORT" \
+          --parity "$PARITY_REPORT" \
+          --output "$GATE_OUTPUT_DIR" \
+          --github-annotations
+        gate_exit=$?
+        if [[ -f "$GATE_OUTPUT_DIR/gate-summary.md" ]]; then
+          cat "$GATE_OUTPUT_DIR/gate-summary.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        echo "exit-code=$gate_exit" >> "$GITHUB_OUTPUT"
+        exit 0
+    - name: Upload RealSense gate diagnostics
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.output-dir }}
+        if-no-files-found: error
+    - name: Enforce RealSense gate result
+      if: always()
+      shell: bash
+      env:
+        GATE_EXIT_CODE: ${{ steps.gate.outputs.exit-code }}
+      run: exit "$GATE_EXIT_CODE"

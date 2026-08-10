@@ -60,6 +60,7 @@ class SDKContractFixtureRunner:
             "option_plan": plan,
             "output": result["output"],
             "processing_ms": result["processing_ms"],
+            "motion_enabled": False,
         }
 
 
@@ -131,6 +132,7 @@ class LibrealsenseBagRunner:
             "option_plan": plan,
             "output": _metrics(rows),
             "processing_ms": round((time.perf_counter() - started) * 1000, 3),
+            "motion_enabled": False,
         }
 
 
