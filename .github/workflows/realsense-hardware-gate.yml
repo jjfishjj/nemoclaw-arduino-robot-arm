@@ -23,6 +23,7 @@ jobs:
       PARITY_FRAME: "60"
       WARMUP_FRAMES: "30"
       SAMPLE_FRAMES: "120"
+      PROVISION_DIR: artifacts/realsense-hardware-gate/provisioning
     steps:
       - name: Checkout trusted branch
         uses: actions/checkout@v4
@@ -48,9 +49,18 @@ jobs:
           "$venv_path/bin/python" -m pip install -e '.[realsense]'
           echo "$venv_path/bin" >> "$GITHUB_PATH"
 
-      - name: Verify librealsense runtime
+      - name: Run fail-closed runner provisioning checklist
         shell: bash
-        run: python -c 'import pyrealsense2; print("pyrealsense2 ready")'
+        run: |
+          checklist_status=0
+          python -m arm_bridge.realsense_runner_check \
+            --bag "$REALSENSE_BAG_PATH" \
+            --labels "self-hosted,linux,x64,realsense" \
+            --min-free-gib 5 \
+            --output "$PROVISION_DIR/report.json" \
+            --summary "$PROVISION_DIR/summary.md" || checklist_status=$?
+          cat "$PROVISION_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          exit "$checklist_status"
 
       - name: Run native performance benchmark
         id: benchmark

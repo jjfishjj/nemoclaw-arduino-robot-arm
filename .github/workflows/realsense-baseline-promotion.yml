@@ -18,6 +18,7 @@ jobs:
     env:
       REALSENSE_BAG_PATH: ${{ vars.REALSENSE_BAG_PATH }}
       CANDIDATE_DIR: artifacts/realsense-baseline-candidate
+      PROVISION_DIR: artifacts/realsense-runner-provisioning
     steps:
       - name: Checkout trusted default branch
         uses: actions/checkout@v4
@@ -41,6 +42,19 @@ jobs:
           "$venv_path/bin/python" -m pip install -e '.[realsense]'
           echo "$venv_path/bin" >> "$GITHUB_PATH"
 
+      - name: Run fail-closed runner provisioning checklist
+        shell: bash
+        run: |
+          checklist_status=0
+          python -m arm_bridge.realsense_runner_check \
+            --bag "$REALSENSE_BAG_PATH" \
+            --labels "self-hosted,linux,x64,realsense" \
+            --min-free-gib 5 \
+            --output "$PROVISION_DIR/report.json" \
+            --summary "$PROVISION_DIR/summary.md" || checklist_status=$?
+          cat "$PROVISION_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          exit "$checklist_status"
+
       - name: Generate native candidate
         shell: bash
         run: |
@@ -57,6 +71,15 @@ jobs:
           path: ${{ env.CANDIDATE_DIR }}/realsense-native-baseline.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload runner provisioning report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: realsense-runner-provisioning-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.PROVISION_DIR }}
+          if-no-files-found: error
+          retention-days: 14
 
   approve-and-promote:
     name: Approve, attest, and open promotion PR
