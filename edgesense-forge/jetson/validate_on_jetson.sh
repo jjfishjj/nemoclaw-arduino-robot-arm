@@ -15,6 +15,9 @@ if [[ -n "${power_mode}" ]]; then
 fi
 mkdir -p "${report_dir}"
 nvpmodel -q > "${report_dir}/power-mode.txt" 2>&1
+if command -v jetson_clocks >/dev/null 2>&1; then
+  jetson_clocks --show > "${report_dir}/clocks.txt" 2>&1 || true
+fi
 cat /etc/nv_tegra_release > "${report_dir}/jetson-release.txt"
 uname -a > "${report_dir}/uname.txt"
 trtexec --version > "${report_dir}/tensorrt-version.txt" 2>&1 || true

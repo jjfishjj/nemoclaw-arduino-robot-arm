@@ -94,7 +94,11 @@ class PostgresEventStore:
     def purge_before(self,cutoff):
         with self.pool.connection() as connection:
             deleted=connection.execute("delete from telemetry where measured_at<%s",(cutoff,)).rowcount
-            connection.execute("delete from benchmark_runs where measured_at<%s",(cutoff,))
+            benchmarks_deleted=connection.execute("delete from benchmark_runs where measured_at<%s",(cutoff,)).rowcount
+            connection.execute(
+                "insert into retention_runs(cutoff,telemetry_deleted,benchmark_runs_deleted) values(%s,%s,%s)",
+                (cutoff, deleted, benchmarks_deleted),
+            )
             return deleted
 
     def ping(self):

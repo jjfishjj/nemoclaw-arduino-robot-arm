@@ -10,6 +10,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def summarize_plan(raw_plan: list[dict]) -> dict:
+    root = raw_plan[0]
+    nodes: list[str] = []
+
+    def visit(node: dict) -> None:
+        nodes.append(node.get("Node Type", "unknown"))
+        for child in node.get("Plans", []):
+            visit(child)
+
+    visit(root["Plan"])
+    return {
+        "planning_ms": root.get("Planning Time"),
+        "execution_ms": root.get("Execution Time"),
+        "nodes": nodes,
+        "shared_hit_blocks": root["Plan"].get("Shared Hit Blocks", 0),
+        "shared_read_blocks": root["Plan"].get("Shared Read Blocks", 0),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run real PostgreSQL telemetry loads and capture query plans")
     parser.add_argument("--sizes", type=int, nargs="+", default=[10000, 100000])
@@ -38,11 +57,19 @@ def main() -> None:
     }
     plans = {}
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
+        connection.execute("analyze telemetry")
+        connection.execute("analyze alerts")
         for name, query in queries.items():
             plan = connection.execute(f"explain (analyze, buffers, format json) {query}").fetchone()["QUERY PLAN"]
-            plans[name] = plan
+            plans[name] = {"summary": summarize_plan(plan), "raw": plan}
+        maintenance = connection.execute(
+            """select relname,last_analyze,last_autoanalyze,n_live_tup,n_dead_tup
+               from pg_stat_user_tables
+               where relname in ('telemetry','alerts','benchmark_runs') order by relname"""
+        ).fetchall()
     report = {"measured_at": datetime.now(timezone.utc).isoformat(), "database": "postgresql",
-              "loads": loads, "query_plans": plans, "evidence": "measured"}
+              "loads": loads, "query_plans": plans, "maintenance": maintenance,
+              "evidence": "measured"}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, default=str))
     print(args.output)

@@ -33,6 +33,7 @@ create table if not exists alerts (
   created_at timestamptz not null, updated_at timestamptz not null
 );
 create index if not exists alerts_active_idx on alerts(updated_at desc, id desc) where status != 'resolved';
+create index if not exists alerts_active_id_idx on alerts(id desc) include(status, telemetry_id) where status != 'resolved';
 
 create table if not exists alert_rules (
   device_id text primary key, enabled boolean not null default true,
@@ -40,4 +41,12 @@ create table if not exists alert_rules (
   temperature_threshold_c double precision not null check (temperature_threshold_c between 20 and 120),
   retention_days integer not null default 30 check (retention_days between 1 and 3650),
   updated_at timestamptz not null
+);
+
+create table if not exists retention_runs (
+  id bigint generated always as identity primary key,
+  cutoff timestamptz not null,
+  telemetry_deleted bigint not null check (telemetry_deleted >= 0),
+  benchmark_runs_deleted bigint not null check (benchmark_runs_deleted >= 0),
+  completed_at timestamptz not null default now()
 );

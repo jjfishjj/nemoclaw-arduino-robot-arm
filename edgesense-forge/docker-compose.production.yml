@@ -1,0 +1,47 @@
+services:
+  edge-service:
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    restart: unless-stopped
+
+  mosquitto:
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      edge-service:
+        condition: service_healthy
+    environment:
+      DEPLOY_DOMAIN: ${DEPLOY_DOMAIN:?set DEPLOY_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+
+  retention:
+    build: .
+    restart: "no"
+    profiles: ["maintenance"]
+    command: ["python", "scripts/retention_job.py"]
+    environment:
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+      DATABASE_URL_FILE: /run/secrets/database_url
+    secrets: [database_url]
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -103,7 +103,13 @@ Retention 預設 30 日，可用 `RETENTION_DAYS` 調整，或呼叫 `POST /api/
 ```bash
 .venv/bin/python scripts/load_test.py --events 10000 --workers 4
 DATABASE_URL=postgresql://... .venv/bin/python scripts/load_test.py --events 10000 --workers 8
+DATABASE_URL=postgresql://... .venv/bin/python scripts/postgres_benchmark.py --sizes 10000 100000
+DATABASE_URL=postgresql://... .venv/bin/python scripts/retention_job.py --days 30
 ```
+
+Benchmark report 包含實際 `EXPLAIN ANALYZE` node、planning/execution time、buffer
+統計與 `pg_stat_user_tables` maintenance evidence。Retention 成功執行會寫入
+`retention_runs`，方便外部排程監控是否漏跑。
 
 ## 告警與作品集
 
@@ -119,6 +125,16 @@ Dashboard 的 `ALERTS` 分頁支援確認、完成、備註、規則與 CSV 匯�
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.secure.yml up --build
+```
+
+具備真實 DNS 後，以 Caddy 自動取得 HTTPS certificate：
+
+```bash
+export DEPLOY_DOMAIN=edgesense.example.com
+export ACME_EMAIL=ops@example.com
+docker compose -f docker-compose.yml -f docker-compose.secure.yml \
+  -f docker-compose.production.yml up -d --build
+python scripts/health_monitor.py --url "https://${DEPLOY_DOMAIN}/health/ready"
 ```
 
 需要先準備 `secrets/README.md` 列出的憑證與 secret files。TLS 設定要求 Mosquitto
