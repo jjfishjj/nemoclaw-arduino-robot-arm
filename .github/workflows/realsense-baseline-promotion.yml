@@ -1,0 +1,142 @@
+name: RealSense Signed Baseline Promotion
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: realsense-baseline-promotion
+  cancel-in-progress: false
+
+jobs:
+  capture-candidate:
+    name: Capture native baseline candidate
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: [self-hosted, linux, x64, realsense]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      REALSENSE_BAG_PATH: ${{ vars.REALSENSE_BAG_PATH }}
+      CANDIDATE_DIR: artifacts/realsense-baseline-candidate
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Validate runner input
+        shell: bash
+        run: |
+          test -n "$REALSENSE_BAG_PATH"
+          test "${REALSENSE_BAG_PATH##*.}" = "bag"
+          test -f "$REALSENSE_BAG_PATH"
+
+      - name: Create isolated Python environment
+        shell: bash
+        run: |
+          venv_path="$RUNNER_TEMP/realsense-promotion-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          python3 -m venv "$venv_path"
+          "$venv_path/bin/python" -m pip install --upgrade pip
+          "$venv_path/bin/python" -m pip install -e '.[realsense]'
+          echo "$venv_path/bin" >> "$GITHUB_PATH"
+
+      - name: Generate native candidate
+        shell: bash
+        run: |
+          python -m arm_bridge.realsense_benchmark "$REALSENSE_BAG_PATH" \
+            --baseline "$CANDIDATE_DIR/realsense-native-baseline.json" \
+            --warmup 30 \
+            --samples 120 \
+            --write-baseline
+
+      - name: Upload candidate without repository credentials
+        uses: actions/upload-artifact@v4
+        with:
+          name: realsense-baseline-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.CANDIDATE_DIR }}/realsense-native-baseline.json
+          if-no-files-found: error
+          retention-days: 7
+
+  approve-and-promote:
+    name: Approve, attest, and open promotion PR
+    needs: capture-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: realsense-baseline-promotion
+    permissions:
+      actions: read
+      attestations: write
+      contents: write
+      id-token: write
+      pull-requests: write
+    env:
+      CANDIDATE: candidate/realsense-native-baseline.json
+      RECEIPT: promotion/realsense-baseline-validation.json
+      TARGET: benchmarks/realsense-native-baseline.json
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Download approved candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: realsense-baseline-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate
+
+      - name: Validate candidate contract
+        run: python -m arm_bridge.realsense_baseline_promotion --candidate "$CANDIDATE" --receipt "$RECEIPT"
+
+      - name: Create signed provenance attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ env.CANDIDATE }}
+
+      - name: Verify signed provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh attestation verify "$CANDIDATE" --repo "$GITHUB_REPOSITORY"
+
+      - name: Prepare baseline promotion branch
+        id: prepare
+        shell: bash
+        run: |
+          promotion_branch="codex/realsense-baseline-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch -c "$promotion_branch"
+          mkdir -p "$(dirname "$TARGET")"
+          cp "$CANDIDATE" "$TARGET"
+          git add "$TARGET"
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Promote RealSense native baseline"
+          git push origin "$promotion_branch"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=$promotion_branch" >> "$GITHUB_OUTPUT"
+
+      - name: Open reviewed baseline PR
+        if: steps.prepare.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROMOTION_BRANCH: ${{ steps.prepare.outputs.branch }}
+        run: |
+          gh pr create \
+            --base "$DEFAULT_BRANCH" \
+            --head "$PROMOTION_BRANCH" \
+            --title "Promote signed RealSense native baseline" \
+            --body "Environment-approved native baseline from workflow run $GITHUB_RUN_ID. Verify its GitHub artifact attestation before merge."
+
+      - name: Upload validation receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: realsense-baseline-promotion-${{ github.run_id }}-${{ github.run_attempt }}
+          path: promotion
+          if-no-files-found: error
