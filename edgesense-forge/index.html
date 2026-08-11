@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EdgeSense Forge — 從自然語言建立 ESP32 與 Jetson Edge AI 設備監測原型。">
+  <title>EdgeSense Forge</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="EdgeSense Forge 首頁">
+      <span class="brand-mark">E<span>◢</span></span>
+      <span><strong>EDGESENSE</strong><small>FORGE / PROTOTYPE 01</small></span>
+    </a>
+    <div class="topbar-status">
+      <span class="status-pill"><i></i> LOCAL ENGINE</span>
+      <span class="version">SPEC 0.1</span>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">SENSOR → EDGE → DECISION</p>
+        <h1>讓設備訊號，<br><em>成為可執行的判斷。</em></h1>
+      </div>
+      <p class="hero-copy">用一句話描述監測需求。系統將它整理成 ESP32 感測方案、Jetson 推論流程與可操作的異常情境。</p>
+    </section>
+
+    <section class="builder-grid">
+      <aside class="config-panel panel">
+        <div class="section-heading">
+          <span>01</span>
+          <div><p>DEFINE</p><h2>任務規格</h2></div>
+        </div>
+
+        <form id="project-form" novalidate>
+          <label for="requirement">設備監測需求</label>
+          <textarea id="requirement" rows="7" maxlength="500" aria-describedby="requirement-hint requirement-error"></textarea>
+          <div class="field-meta"><span id="requirement-hint">支援馬達溫度與震動監測</span><button type="button" class="text-button" id="load-example">載入範例</button></div>
+          <p class="field-error" id="requirement-error" role="alert"></p>
+
+          <div class="compact-fields">
+            <label>裝置 ID<input id="device-id" value="motor-01" autocomplete="off"></label>
+            <label>採樣率<input id="sample-rate" type="number" value="100" min="10" max="400"><span>Hz</span></label>
+            <label>異常門檻<input id="threshold" type="number" value="0.70" min="0.1" max="0.99" step="0.01"></label>
+            <label class="api-key-field">API Key<input id="api-key" type="password" autocomplete="off" placeholder="local: optional"></label>
+          </div>
+
+          <button class="primary-button" id="generate-button" type="submit"><span>生成 Edge AI 方案</span><b aria-hidden="true">↗</b></button>
+        </form>
+
+        <div class="support-matrix">
+          <p>SUPPORTED STACK</p>
+          <div><span>ESP32</span><span>BME280</span><span>MPU6050</span><span>MQTT</span><span>JETSON</span></div>
+        </div>
+      </aside>
+
+      <section class="output-panel panel">
+        <div id="announcement" class="announcement" role="status" aria-live="polite">輸入需求並生成第一個方案。</div>
+
+        <div id="empty-state" class="empty-state">
+          <div class="orbital" aria-hidden="true"><span></span><i></i><b></b></div>
+          <p>WORKSPACE STANDBY</p>
+          <h2>等待設備任務</h2>
+          <span>生成後，這裡會顯示即時資料流、推論結果與部署檢查。</span>
+        </div>
+
+        <div id="workspace" hidden>
+          <div class="workspace-head">
+            <div><p class="eyebrow">ACTIVE PROJECT</p><h2 id="project-name"></h2></div>
+            <div class="workspace-actions">
+              <span class="connection" id="connection-status" data-state="ready">READY</span>
+              <button id="export-button" class="secondary-button">匯出 SPEC ↓</button>
+            </div>
+          </div>
+
+          <div class="pipeline" id="pipeline" aria-label="資料處理流程">
+            <div class="pipeline-node"><span>01</span><b>ESP32</b><small>SENSE</small></div>
+            <i aria-hidden="true"></i>
+            <div class="pipeline-node"><span>02</span><b>MQTT</b><small>STREAM</small></div>
+            <i aria-hidden="true"></i>
+            <div class="pipeline-node"><span>03</span><b>JETSON</b><small>INFER</small></div>
+            <i aria-hidden="true"></i>
+            <div class="pipeline-node"><span>04</span><b>ALERT</b><small>ACT</small></div>
+          </div>
+
+          <section class="lab-panel">
+            <div class="lab-head">
+              <div><p class="eyebrow">02 / LIVE LAB</p><h3>設備狀態模擬</h3></div>
+              <span class="simulation-status" id="simulation-status" data-state="idle"><i id="live-dot"></i>IDLE</span>
+            </div>
+
+            <div class="scenario-list" role="group" aria-label="模擬情境">
+              <button data-scenario="normal" class="scenario-button is-selected" aria-pressed="true"><span>01</span><strong>正常運轉</strong><small>BASELINE</small></button>
+              <button data-scenario="overheat" class="scenario-button" aria-pressed="false"><span>02</span><strong>設備過熱</strong><small>THERMAL</small></button>
+              <button data-scenario="vibration" class="scenario-button" aria-pressed="false"><span>03</span><strong>異常震動</strong><small>BEARING</small></button>
+            </div>
+            <p id="scenario-description" class="scenario-description">設備穩定，溫度與震動都在安全範圍。</p>
+
+            <div class="lab-controls">
+              <button class="primary-button compact" id="start-simulation" data-running="false">開始模擬</button>
+              <button class="secondary-button" id="reset-simulation">重設</button>
+              <span>MQTT → PYDANTIC → WEBSOCKET · 1 Hz</span>
+            </div>
+
+            <div class="metrics-grid">
+              <article class="metric"><p>TEMPERATURE</p><strong id="temperature-value">—</strong><span>安全門檻 70°C</span></article>
+              <article class="metric"><p>VIBRATION RMS</p><strong id="vibration-value">—</strong><span>安全門檻 0.80 g</span></article>
+              <article class="metric score-metric"><p>ANOMALY SCORE</p><strong id="score-value">—</strong><div class="score-track"><i id="score-bar"></i></div></article>
+              <article class="metric"><p>INFERENCE</p><strong id="latency-value">—</strong><span id="engine-value">ENGINE WAITING</span></article>
+            </div>
+
+            <div class="alert-card" id="alert-card" data-alert="none">
+              <span class="alert-icon" aria-hidden="true">◆</span>
+              <div><small>EDGE DECISION</small><strong id="alert-label">等待資料</strong><p id="alert-reason">啟動情境後，推論結果會顯示在這裡。</p></div>
+            </div>
+          </section>
+
+          <section class="detail-panel">
+            <div class="tablist" role="tablist" aria-label="方案細節">
+              <button role="tab" data-tab="overview" class="is-selected" aria-selected="true">OVERVIEW</button>
+              <button role="tab" data-tab="schema" aria-selected="false" tabindex="-1">MQTT SCHEMA</button>
+              <button role="tab" data-tab="checks" aria-selected="false" tabindex="-1">CHECKS</button>
+              <button role="tab" data-tab="benchmark" aria-selected="false" tabindex="-1">BENCHMARK</button>
+              <button role="tab" data-tab="history" aria-selected="false" tabindex="-1">HISTORY</button>
+              <button role="tab" data-tab="alerts" aria-selected="false" tabindex="-1">ALERTS</button>
+              <button role="tab" data-tab="spec" aria-selected="false" tabindex="-1">SPEC</button>
+            </div>
+
+            <div id="tab-panel">
+              <div data-panel="overview">
+                <div class="detail-grid">
+                  <div><p class="detail-label">HARDWARE PLAN</p><div class="summary-list" id="device-summary"></div></div>
+                  <div><p class="detail-label">RECENT EVENTS</p><ol class="event-timeline" id="event-timeline"></ol></div>
+                </div>
+              </div>
+              <div data-panel="schema" hidden>
+                <p class="detail-label">TELEMETRY TOPIC</p><code class="topic" id="telemetry-topic"></code>
+                <pre id="schema-preview"></pre>
+              </div>
+              <div data-panel="checks" hidden><p class="detail-label">DESIGN REVIEW · 2 PASS / 2 ADVISORY</p><ul class="checks-list" id="checks-list"></ul></div>
+              <div data-panel="benchmark" hidden>
+                <div id="engine-cards" class="engine-cards">
+                  <div class="benchmark-card"><span>MODEL RUNTIME</span><strong>LOADING</strong><p>正在讀取 engine metadata。</p></div>
+                </div>
+                <div class="benchmark-controls">
+                  <label>Warm-up<input id="warmup-runs" type="number" min="1" max="500" value="20"></label>
+                  <label>Measured<input id="measured-runs" type="number" min="10" max="5000" value="200"></label>
+                  <button id="run-benchmark" class="primary-button compact">執行 Benchmark</button>
+                </div>
+                <div id="benchmark-result" class="benchmark-result" hidden></div>
+                <div class="history-section"><p class="detail-label">BENCHMARK HISTORY</p><div id="benchmark-history" class="history-table"></div></div>
+              </div>
+              <div data-panel="history" hidden>
+                <div id="history-summary" class="history-summary"></div>
+                <div class="history-toolbar">
+                  <p class="detail-label">TELEMETRY TREND · LATEST 120</p>
+                  <button id="refresh-history" class="secondary-button">重新整理</button>
+                </div>
+                <div id="history-chart" class="history-chart"><p class="timeline-empty">尚無持久化資料。</p></div>
+                <p class="detail-label history-label">ANOMALY EVENTS</p>
+                <div id="anomaly-history" class="history-table"></div>
+              </div>
+              <div data-panel="alerts" hidden>
+                <div class="history-toolbar">
+                  <p class="detail-label">ALERT WORKFLOW</p>
+                  <button id="export-alerts" class="secondary-button">匯出 CSV</button>
+                </div>
+                <div class="alert-filter" role="group" aria-label="告警狀態篩選">
+                  <button class="secondary-button is-active" data-alert-filter="open">OPEN</button>
+                  <button class="secondary-button" data-alert-filter="acknowledged">ACKNOWLEDGED</button>
+                  <button class="secondary-button" data-alert-filter="resolved">RESOLVED</button>
+                  <button class="secondary-button" data-alert-filter="">ALL</button>
+                </div>
+                <div id="alert-worklist" class="alert-worklist"><p class="timeline-empty">正在讀取告警。</p></div>
+                <button id="load-more-alerts" class="secondary-button" hidden>載入更多</button>
+                <form id="rule-form" class="rule-form">
+                  <p class="detail-label">DEVICE ALERT RULE</p>
+                  <label>Score threshold<input id="rule-score" type="number" min="0.1" max="0.99" step="0.01" value="0.70"></label>
+                  <label>Temperature °C<input id="rule-temperature" type="number" min="20" max="120" value="70"></label>
+                  <label>Retention days<input id="rule-retention" type="number" min="1" max="3650" value="30"></label>
+                  <label class="rule-enabled"><input id="rule-enabled" type="checkbox" checked> Enabled</label>
+                  <button class="primary-button compact" type="submit">儲存規則</button>
+                </form>
+              </div>
+              <div data-panel="spec" hidden><pre id="spec-preview"></pre></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer><span>EDGESENSE FORGE</span><p>PROTOTYPE ASSISTANCE · VERIFY HARDWARE BEFORE POWER-ON</p><span>TAIPEI / LOCAL</span></footer>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

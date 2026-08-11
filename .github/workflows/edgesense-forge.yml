@@ -1,0 +1,33 @@
+name: EdgeSense Forge CI
+
+on:
+  pull_request:
+    paths: ["edgesense-forge/**", ".github/workflows/edgesense-forge.yml"]
+  push:
+    paths: ["edgesense-forge/**", ".github/workflows/edgesense-forge.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edgesense-forge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip, cache-dependency-path: edgesense-forge/requirements-dev.txt}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm, cache-dependency-path: edgesense-forge/package.json}
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -r requirements-dev.txt
+      - run: npm test
+      - run: node --check app.mjs
+      - run: .venv/bin/python -m compileall -q edge_service tests scripts jetson
+      - name: Reject committed runtime secrets
+        run: |
+          test ! -e secrets/api_key.txt
+          test ! -e secrets/database_url.txt
+          test ! -e secrets/postgres_password.txt

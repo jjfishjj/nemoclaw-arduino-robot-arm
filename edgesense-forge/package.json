@@ -1,0 +1,12 @@
+{
+  "name": "edgesense-forge-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": ".venv/bin/uvicorn edge_service.main:app --host 127.0.0.1 --port 8000",
+    "test": "node --test tests/*.test.mjs && .venv/bin/python -m unittest discover -s tests -p 'test_*.py'",
+    "test:js": "node --test tests/*.test.mjs",
+    "test:py": ".venv/bin/python -m unittest discover -s tests -p 'test_*.py'"
+  }
+}
