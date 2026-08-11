@@ -1,0 +1,82 @@
+name: RealSense Hardware Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: realsense-hardware-gate
+  cancel-in-progress: false
+
+jobs:
+  native-gate:
+    name: Native .bag benchmark and parity
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: [self-hosted, linux, x64, realsense]
+    timeout-minutes: 30
+    env:
+      REALSENSE_BAG_PATH: ${{ vars.REALSENSE_BAG_PATH }}
+      REALSENSE_BASELINE_PATH: ${{ vars.REALSENSE_BASELINE_PATH }}
+      REPORT_DIR: artifacts/realsense-hardware-gate
+      PARITY_FRAME: "60"
+      WARMUP_FRAMES: "30"
+      SAMPLE_FRAMES: "120"
+    steps:
+      - name: Checkout trusted branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Validate runner inputs
+        shell: bash
+        run: |
+          test -n "$REALSENSE_BAG_PATH"
+          test -n "$REALSENSE_BASELINE_PATH"
+          test "${REALSENSE_BAG_PATH##*.}" = "bag"
+          test -f "$REALSENSE_BAG_PATH"
+          test -f "$REALSENSE_BASELINE_PATH"
+
+      - name: Create isolated Python environment
+        shell: bash
+        run: |
+          venv_path="$RUNNER_TEMP/realsense-gate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          python3 -m venv "$venv_path"
+          "$venv_path/bin/python" -m pip install --upgrade pip
+          "$venv_path/bin/python" -m pip install -e '.[realsense]'
+          echo "$venv_path/bin" >> "$GITHUB_PATH"
+
+      - name: Verify librealsense runtime
+        shell: bash
+        run: python -c 'import pyrealsense2; print("pyrealsense2 ready")'
+
+      - name: Run native performance benchmark
+        id: benchmark
+        continue-on-error: true
+        shell: bash
+        run: |
+          python -m arm_bridge.realsense_benchmark "$REALSENSE_BAG_PATH" \
+            --baseline "$REALSENSE_BASELINE_PATH" \
+            --warmup "$WARMUP_FRAMES" \
+            --samples "$SAMPLE_FRAMES" \
+            --output "$REPORT_DIR/benchmark.json"
+
+      - name: Run same-recording Python/native parity
+        id: parity
+        continue-on-error: true
+        shell: bash
+        run: |
+          python -m arm_bridge.realsense_parity_report "$REALSENSE_BAG_PATH" \
+            --frame "$PARITY_FRAME" \
+            --output "$REPORT_DIR/parity.json"
+
+      - name: Enforce native reports
+        if: always()
+        uses: ./.github/actions/realsense-native-gate
+        with:
+          benchmark-report: ${{ env.REPORT_DIR }}/benchmark.json
+          parity-report: ${{ env.REPORT_DIR }}/parity.json
+          output-dir: ${{ env.REPORT_DIR }}/gate
+          artifact-name: realsense-hardware-gate-${{ github.run_id }}-${{ github.run_attempt }}

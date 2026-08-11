@@ -120,6 +120,7 @@ class RealSenseBagPlayback:
         config.enable_device_from_file(str(path), repeat_playback=False)
         profile = self._pipeline.start(config)
         profile.get_device().as_playback().set_real_time(False)
+        self._depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
         self.name = "RealSense bag playback"
         self.bag_name = path.name
         self._frames: list[RGBDFrame] = []
@@ -138,7 +139,9 @@ class RealSenseBagPlayback:
                 raise SafetyError("bag frame is missing aligned color or depth")
             intr = depth.profile.as_video_stream_profile().intrinsics
             camera = CameraIntrinsics(intr.width, intr.height, intr.fx, intr.fy, intr.ppx, intr.ppy)
-            rows = tuple(tuple(depth.get_distance(x, y) for x in range(intr.width)) for y in range(intr.height))
+            import numpy as np
+            depth_m = np.asanyarray(depth.get_data()).astype(np.float32) * self._depth_scale
+            rows = tuple(tuple(float(value) for value in row) for row in depth_m)
             frame = RGBDFrame(len(self._frames), frames.get_timestamp(), "", camera, rows)
             frame.validate()
             self._frames.append(frame)
@@ -150,6 +153,9 @@ class RealSenseBagPlayback:
         while len(self._frames) <= index:
             self.read_next()
         return self._frames[index]
+
+    def close(self) -> None:
+        self._pipeline.stop()
 
 
 class PlaybackContract:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from pathlib import Path
 from typing import Protocol
@@ -78,6 +79,11 @@ class LibrealsenseBagRunner:
             raise SafetyError("install the 'realsense' extra for native .bag filters") from exc
         self.rs = rs
         self.path = path
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        self.recording_sha256 = digest.hexdigest()
 
     def _set(self, block, option_name: str, value: float) -> None:
         option = getattr(self.rs.option, option_name)
@@ -154,7 +160,7 @@ class NativeParityContract:
             "roughness_delta_m": round(abs(p["roughness_m"] - n["roughness_m"]), 6),
         }
         within_limits = all(deltas[key] <= limit for key, limit in PARITY_LIMITS.items())
-        return {
+        result = {
             "ok": True,
             "frame_index": frame_index,
             "python": {"backend": python["backend"], "output": p, "processing_ms": python["processing_ms"]},
@@ -165,3 +171,7 @@ class NativeParityContract:
             "verified_native": native["verified_native"],
             "motion_enabled": False,
         }
+        recording_sha256 = getattr(self.runner, "recording_sha256", None)
+        if recording_sha256:
+            result["recording_sha256"] = recording_sha256
+        return result

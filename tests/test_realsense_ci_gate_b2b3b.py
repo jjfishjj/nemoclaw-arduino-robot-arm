@@ -14,7 +14,7 @@ from arm_bridge.realsense_ci_gate import (
 def native_benchmark():
     leaf = {
         "schema_version": 1, "verified_native": True, "motion_enabled": False,
-        "recording_sha256": "same", "sample_frames": 120,
+        "recording_sha256": "a" * 64, "sample_frames": 120,
     }
     return {
         "ok": True, "regression": False, "violations": [],
@@ -31,6 +31,7 @@ def native_parity():
         "native": {"verified_native": True, "motion_enabled": False},
         "deltas": {name: 0.0 for name in PARITY_LIMITS},
         "limits": PARITY_LIMITS, "motion_enabled": False,
+        "recording_sha256": "a" * 64,
     }
 
 
@@ -87,6 +88,14 @@ def test_gate_rejects_fixture_or_tampered_contract():
         assert "disagree" in str(exc)
     else:
         raise AssertionError("tampered benchmark violations were accepted")
+    parity = native_parity()
+    parity["recording_sha256"] = "b" * 64
+    try:
+        evaluate_ci_gate(native_benchmark(), parity)
+    except SafetyError as exc:
+        assert "differs" in str(exc)
+    else:
+        raise AssertionError("parity from a different recording was accepted")
 
 
 def test_invalid_gate_still_writes_json_markdown_and_error_annotation(tmp_path):

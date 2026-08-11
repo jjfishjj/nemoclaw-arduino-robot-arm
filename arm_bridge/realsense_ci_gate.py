@@ -57,6 +57,13 @@ def evaluate_ci_gate(benchmark: dict, parity: dict) -> dict:
 
     _require_native(parity, "parity report")
     _require_native(parity.get("native", {}), "parity native result")
+    recording_sha256 = benchmark["current"].get("recording_sha256")
+    if not isinstance(recording_sha256, str) or len(recording_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in recording_sha256.lower()
+    ):
+        raise SafetyError("benchmark recording SHA-256 is malformed")
+    if parity.get("recording_sha256") != recording_sha256:
+        raise SafetyError("parity recording SHA-256 differs from benchmark")
     if parity.get("limits") != PARITY_LIMITS:
         raise SafetyError("parity limits differ from the reviewed contract")
     deltas = parity.get("deltas")
