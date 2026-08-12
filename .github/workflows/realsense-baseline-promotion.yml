@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: realsense-baseline-promotion
+  group: realsense-baseline-governance
   cancel-in-progress: false
 
 jobs:
@@ -98,6 +98,8 @@ jobs:
       CANDIDATE: candidate/realsense-native-baseline.json
       RECEIPT: promotion/realsense-baseline-validation.json
       TARGET: benchmarks/realsense-native-baseline.json
+      LEDGER: benchmarks/realsense-baseline-ledger.jsonl
+      ARCHIVE_DIR: benchmarks/realsense-baselines
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
       - name: Checkout trusted default branch
@@ -130,9 +132,16 @@ jobs:
         run: |
           promotion_branch="codex/realsense-baseline-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git switch -c "$promotion_branch"
-          mkdir -p "$(dirname "$TARGET")"
-          cp "$CANDIDATE" "$TARGET"
-          git add "$TARGET"
+          python -m arm_bridge.realsense_baseline_ledger promote \
+            --ledger "$LEDGER" \
+            --artifact "$CANDIDATE" \
+            --archive-dir "$ARCHIVE_DIR" \
+            --target "$TARGET" \
+            --occurred-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --actor "$GITHUB_ACTOR" \
+            --workflow-run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --reason "signed native baseline promotion"
+          git add "$TARGET" "$LEDGER" "$ARCHIVE_DIR"
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0

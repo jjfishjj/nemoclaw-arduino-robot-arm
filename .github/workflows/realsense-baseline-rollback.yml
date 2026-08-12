@@ -1,0 +1,69 @@
+name: RealSense Baseline Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_sha256:
+        description: Previously promoted baseline SHA-256 to restore
+        required: true
+        type: string
+      reason:
+        description: Auditable reason for rollback
+        required: true
+        type: string
+
+concurrency:
+  group: realsense-baseline-governance
+  cancel-in-progress: false
+
+jobs:
+  approve-and-prepare:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: realsense-baseline-rollback
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      LEDGER: benchmarks/realsense-baseline-ledger.jsonl
+      ARCHIVE_DIR: benchmarks/realsense-baselines
+      TARGET: benchmarks/realsense-native-baseline.json
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      BASELINE_SHA256: ${{ inputs.baseline_sha256 }}
+      ROLLBACK_REASON: ${{ inputs.reason }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Verify ledger and prepare rollback
+        run: |
+          python -m arm_bridge.realsense_baseline_ledger rollback \
+            --ledger "$LEDGER" \
+            --archive-dir "$ARCHIVE_DIR" \
+            --target "$TARGET" \
+            --digest "$BASELINE_SHA256" \
+            --occurred-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --actor "$GITHUB_ACTOR" \
+            --workflow-run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --reason "$ROLLBACK_REASON"
+
+      - name: Open rollback pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rollback_branch="codex/realsense-rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch -c "$rollback_branch"
+          git add "$TARGET" "$LEDGER"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Rollback RealSense baseline to ${BASELINE_SHA256:0:12}"
+          git push origin "$rollback_branch"
+          gh pr create \
+            --base "$DEFAULT_BRANCH" \
+            --head "$rollback_branch" \
+            --title "Rollback RealSense baseline to ${BASELINE_SHA256:0:12}" \
+            --body "Environment-approved rollback to previously promoted digest \`$BASELINE_SHA256\`. Reason: $ROLLBACK_REASON. Review the appended ledger entry before merge."
