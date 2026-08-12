@@ -23,6 +23,7 @@ from .depth_filter_graph import FilterGraphContract
 from .librealsense_filters import (
     LibrealsenseBagRunner, NativeParityContract, SDKContractFixtureRunner,
 )
+from .realsense_benchmark_dashboard import BenchmarkDashboardSource
 
 
 ASSETS = Path(__file__).with_name("console_assets")
@@ -31,7 +32,7 @@ MAX_BODY_BYTES = 4096
 
 
 class ConsoleState:
-    def __init__(self, bridge_url: str, bridge_token: str, pairing_code: str, live: LiveRGBDContract | None = None, native_runner=None):
+    def __init__(self, bridge_url: str, bridge_token: str, pairing_code: str, live: LiveRGBDContract | None = None, native_runner=None, benchmark_dashboard=None):
         self.bridge_url = bridge_url.rstrip("/")
         self.bridge_token = bridge_token
         self.pairing_code = pairing_code
@@ -46,6 +47,7 @@ class ConsoleState:
         self.native_parity = NativeParityContract(
             self.playback.source, native_runner or SDKContractFixtureRunner(self.playback.source)
         )
+        self.benchmark_dashboard = benchmark_dashboard or BenchmarkDashboardSource()
 
     def pair(self, code: str) -> str | None:
         with self.lock:
@@ -214,6 +216,13 @@ def make_console_handler(state: ConsoleState, port: int):
                 if not self._require_session():
                     return
                 return self._json(200, state.playback.metadata())
+            if path == "/api/realsense/benchmark-dashboard":
+                if not self._require_session():
+                    return
+                try:
+                    return self._json(200, state.benchmark_dashboard.report())
+                except SafetyError as exc:
+                    return self._json(422, {"ok": False, "health": "BLOCKED", "error": str(exc)})
             self._json(404, {"ok": False, "error": "not found"})
 
         def do_POST(self) -> None:
@@ -292,6 +301,8 @@ def main() -> None:
     parser.add_argument("--token-file")
     parser.add_argument("--realsense-live", action="store_true", help="Use a connected RealSense instead of the CI live source")
     parser.add_argument("--realsense-bag", help="Absolute .bag path for native SDK filter comparison")
+    parser.add_argument("--benchmark-report", help="Read-only benchmark comparison JSON for the console")
+    parser.add_argument("--gate-report", help="Read-only native gate JSON for the console")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("--port must be between 1024 and 65535")
@@ -302,7 +313,8 @@ def main() -> None:
     pairing_code = f"{secrets.randbelow(1_000_000):06d}"
     live = LiveRGBDContract(RealSenseLiveSource()) if args.realsense_live else default_live()
     native_runner = LibrealsenseBagRunner(args.realsense_bag) if args.realsense_bag else None
-    state = ConsoleState(args.bridge_url, token, pairing_code, live, native_runner)
+    dashboard = BenchmarkDashboardSource(args.benchmark_report, args.gate_report)
+    state = ConsoleState(args.bridge_url, token, pairing_code, live, native_runner, dashboard)
     print(f"Robot arm console: http://127.0.0.1:{args.port}")
     print(f"One-time pairing code: {pairing_code}")
     ThreadingHTTPServer(

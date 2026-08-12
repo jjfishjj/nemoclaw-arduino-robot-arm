@@ -220,6 +220,35 @@
         </div>
       </section>
 
+      <section class="benchmark-card card">
+        <div class="section-head">
+          <div><p class="section-label">B2-B3C · NATIVE BENCHMARK REPORT</p><h2>效能基準控制台</h2></div>
+          <div class="benchmark-actions">
+            <span id="benchmarkHealth" class="health-badge blocked">BLOCKED</span>
+            <button id="benchmarkRefresh" class="ghost" type="button">重新載入</button>
+          </div>
+        </div>
+        <div class="benchmark-meta">
+          <div><span>Gate</span><strong id="benchmarkGate">NOT LOADED</strong></div>
+          <div><span>Native</span><strong id="benchmarkNative">—</strong></div>
+          <div><span>Recording</span><strong id="benchmarkRecording">—</strong></div>
+        </div>
+        <div id="benchmarkEmpty" class="benchmark-empty">尚未載入 benchmark report。</div>
+        <div id="benchmarkContent" class="hidden">
+          <div class="benchmark-table-wrap">
+            <table class="benchmark-table">
+              <thead><tr><th>Metric</th><th>Baseline</th><th>Current</th><th>Delta</th></tr></thead>
+              <tbody id="benchmarkRows"></tbody>
+            </table>
+          </div>
+          <div class="failure-panel">
+            <p class="section-label">FAILURE REASONS</p>
+            <ul id="benchmarkFailures"></ul>
+          </div>
+        </div>
+        <p class="vision-help">READ-ONLY REPORT · LOCAL SESSION · NO BASELINE WRITE · NO MOTION</p>
+      </section>
+
       <section class="events-card card">
         <div class="section-head">
           <div><p class="section-label">EVENT LOG</p><h2>最近事件</h2></div>

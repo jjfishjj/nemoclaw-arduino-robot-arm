@@ -13,6 +13,47 @@ function notify(message, error = false) {
   notify.timer = window.setTimeout(() => { toast.className = ''; }, 3200);
 }
 
+function metricValue(value, unit) {
+  return unit === '%' ? `${value.toFixed(2)}%` : `${value.toFixed(unit === 'ms' ? 3 : 1)} ${unit}`;
+}
+
+function renderBenchmark(report) {
+  const health = $('#benchmarkHealth');
+  health.textContent = report.health;
+  health.className = `health-badge ${report.health === 'HEALTHY' ? 'healthy' : (report.health === 'DEGRADED' ? 'degraded' : 'blocked')}`;
+  $('#benchmarkGate').textContent = report.gate_status.replace('_', ' ');
+  $('#benchmarkNative').textContent = report.verified_native ? 'VERIFIED' : 'UNVERIFIED';
+  $('#benchmarkRecording').textContent = report.recording_sha256 ? report.recording_sha256.slice(0, 12) : '—';
+  const hasMetrics = report.metrics.length > 0;
+  $('#benchmarkEmpty').classList.toggle('hidden', hasMetrics);
+  $('#benchmarkContent').classList.toggle('hidden', !hasMetrics);
+  if (!hasMetrics) $('#benchmarkEmpty').textContent = report.failures.join(' · ');
+  $('#benchmarkRows').replaceChildren(...report.metrics.map((metric) => {
+    const row = document.createElement('tr');
+    const deltaClass = metric.delta > 0 && metric.key !== 'fps' ? 'bad' : (metric.delta < 0 && metric.key === 'fps' ? 'bad' : 'good');
+    row.innerHTML = '<th></th><td></td><td></td><td></td>';
+    row.children[0].textContent = metric.label;
+    row.children[1].textContent = metricValue(metric.baseline, metric.unit);
+    row.children[2].textContent = metricValue(metric.current, metric.unit);
+    row.children[3].textContent = `${metric.delta >= 0 ? '+' : ''}${metricValue(metric.delta, metric.unit)} (${metric.delta_percent >= 0 ? '+' : ''}${metric.delta_percent.toFixed(2)}%)`;
+    row.children[3].className = deltaClass;
+    return row;
+  }));
+  const failures = report.failures.length ? report.failures : ['No failures · all reviewed limits passed'];
+  $('#benchmarkFailures').replaceChildren(...failures.map((failure) => {
+    const item = document.createElement('li'); item.textContent = failure; return item;
+  }));
+}
+
+async function loadBenchmark() {
+  try {
+    renderBenchmark(await api('/api/realsense/benchmark-dashboard'));
+  } catch (error) {
+    renderBenchmark({ health: 'BLOCKED', gate_status: 'INVALID', verified_native: false, recording_sha256: '', metrics: [], failures: [error.message] });
+    notify(error.message, true);
+  }
+}
+
 function renderLiveStatus(status) {
   const health = status.frame_health;
   $('#liveConnection').textContent = status.connected ? 'CONNECTED' : (status.running ? 'RECONNECTING' : 'STOPPED');
@@ -159,6 +200,7 @@ function setPaired(paired) {
     refreshStatus();
     loadVisionScenes();
     loadRGBDRecording();
+    loadBenchmark();
     window.clearInterval(state.poll);
     state.poll = window.setInterval(refreshStatus, 1500);
   }
@@ -390,6 +432,7 @@ $('#liveStartButton').addEventListener('click', startLive);
 $('#liveStopButton').addEventListener('click', stopLive);
 $('#applyFiltersButton').addEventListener('click', applyFilterGraph);
 $('#compareNativeButton').addEventListener('click', compareNativeFilters);
+$('#benchmarkRefresh').addEventListener('click', loadBenchmark);
 $('#rgbdFrame').addEventListener('click', (event) => {
   if (!state.rgbd) return;
   const rect = $('#rgbdFrame').getBoundingClientRect();
