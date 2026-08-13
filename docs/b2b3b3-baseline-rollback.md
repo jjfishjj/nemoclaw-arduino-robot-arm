@@ -21,3 +21,16 @@ the dedicated `realsense-baseline-rollback` Environment deployment. The workflow
 Rollback is a new auditable state transition; historical entries are never
 removed. Robot motion remains disabled throughout. Branch protection should
 require review of the baseline, archive, and ledger changes together.
+
+## B2-B3B3A signed ledger anchor
+
+Each governance PR also updates `realsense-baseline-ledger-anchor.json`. The
+anchor binds the ledger byte digest, entry count, head digest, active baseline
+digest, action, commit, timestamp, and workflow run. The protected job creates
+a GitHub artifact attestation for that exact JSON and immediately verifies it.
+
+Before the next promotion or rollback, the job verifies the previous anchor's
+GitHub attestation and compares it with the checked-out default branch. A
+missing anchor for a non-empty ledger, shortened/replaced ledger tail, changed
+ledger bytes, or swapped active baseline blocks governance before mutation.
+Only an empty ledger may bootstrap without an earlier anchor.

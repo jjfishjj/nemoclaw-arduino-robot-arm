@@ -16,4 +16,4 @@ def test_promotion_archives_digest_and_appends_same_ledger():
     text = Path(".github/workflows/realsense-baseline-promotion.yml").read_text(encoding="utf-8")
     assert "group: realsense-baseline-governance" in text
     assert "arm_bridge.realsense_baseline_ledger promote" in text
-    assert 'git add "$TARGET" "$LEDGER" "$ARCHIVE_DIR"' in text
+    assert 'git add "$TARGET" "$LEDGER" "$ANCHOR" "$ARCHIVE_DIR"' in text

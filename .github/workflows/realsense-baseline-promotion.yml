@@ -99,6 +99,7 @@ jobs:
       RECEIPT: promotion/realsense-baseline-validation.json
       TARGET: benchmarks/realsense-native-baseline.json
       LEDGER: benchmarks/realsense-baseline-ledger.jsonl
+      ANCHOR: benchmarks/realsense-baseline-ledger-anchor.json
       ARCHIVE_DIR: benchmarks/realsense-baselines
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
@@ -126,6 +127,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh attestation verify "$CANDIDATE" --repo "$GITHUB_REPOSITORY"
 
+      - name: Verify previous signed ledger anchor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -f "$ANCHOR" ]]; then
+            gh attestation verify "$ANCHOR" --repo "$GITHUB_REPOSITORY"
+          fi
+          python -m arm_bridge.realsense_ledger_anchor verify-or-bootstrap \
+            --ledger "$LEDGER" --baseline "$TARGET" --anchor "$ANCHOR"
+
       - name: Prepare baseline promotion branch
         id: prepare
         shell: bash
@@ -141,7 +152,11 @@ jobs:
             --actor "$GITHUB_ACTOR" \
             --workflow-run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --reason "signed native baseline promotion"
-          git add "$TARGET" "$LEDGER" "$ARCHIVE_DIR"
+          python -m arm_bridge.realsense_ledger_anchor create \
+            --ledger "$LEDGER" --baseline "$TARGET" --anchor "$ANCHOR" \
+            --workflow-run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --commit-sha "$GITHUB_SHA" --occurred-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git add "$TARGET" "$LEDGER" "$ANCHOR" "$ARCHIVE_DIR"
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -152,6 +167,18 @@ jobs:
           git push origin "$promotion_branch"
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "branch=$promotion_branch" >> "$GITHUB_OUTPUT"
+
+      - name: Attest new ledger anchor
+        if: steps.prepare.outputs.changed == 'true'
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ env.ANCHOR }}
+
+      - name: Verify new ledger anchor attestation
+        if: steps.prepare.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh attestation verify "$ANCHOR" --repo "$GITHUB_REPOSITORY"
 
       - name: Open reviewed baseline PR
         if: steps.prepare.outputs.changed == 'true'
@@ -170,5 +197,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: realsense-baseline-promotion-${{ github.run_id }}-${{ github.run_attempt }}
-          path: promotion
+          path: |
+            promotion
+            ${{ env.ANCHOR }}
           if-no-files-found: error
