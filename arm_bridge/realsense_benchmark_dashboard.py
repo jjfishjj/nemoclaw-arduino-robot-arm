@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .core import SafetyError
 from .realsense_benchmark import DEFAULT_REGRESSION_LIMITS, SCHEMA_VERSION
+from .realsense_benchmark_history import load_history
 
 
 METRICS = (
@@ -107,18 +108,24 @@ def build_dashboard(benchmark: dict, gate: dict | None = None) -> dict:
 
 
 class BenchmarkDashboardSource:
-    def __init__(self, benchmark_path: str | Path | None = None, gate_path: str | Path | None = None):
+    def __init__(self, benchmark_path: str | Path | None = None, gate_path: str | Path | None = None,
+                 history_dir: str | Path | None = None):
         self.benchmark_path = Path(benchmark_path).expanduser().resolve() if benchmark_path else None
         self.gate_path = Path(gate_path).expanduser().resolve() if gate_path else None
+        self.history_dir = Path(history_dir).expanduser().resolve() if history_dir else None
 
     def report(self) -> dict:
         if not self.benchmark_path:
-            return {
+            report = {
                 "schema_version": "realsense-benchmark-dashboard/v1", "ok": False,
                 "health": "BLOCKED", "gate_status": "NOT_LOADED", "verified_native": False,
                 "motion_enabled": False, "recording_sha256": "", "metrics": [],
                 "failures": ["benchmark report is not configured"], "limits": DEFAULT_REGRESSION_LIMITS,
             }
+            report["history"] = load_history(self.history_dir)
+            return report
         benchmark = _read_object(self.benchmark_path, "benchmark report")
         gate = _read_object(self.gate_path, "gate report") if self.gate_path else None
-        return build_dashboard(benchmark, gate)
+        report = build_dashboard(benchmark, gate)
+        report["history"] = load_history(self.history_dir)
+        return report

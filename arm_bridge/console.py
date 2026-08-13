@@ -303,6 +303,7 @@ def main() -> None:
     parser.add_argument("--realsense-bag", help="Absolute .bag path for native SDK filter comparison")
     parser.add_argument("--benchmark-report", help="Read-only benchmark comparison JSON for the console")
     parser.add_argument("--gate-report", help="Read-only native gate JSON for the console")
+    parser.add_argument("--benchmark-history-dir", help="Directory containing downloaded history-entry JSON artifacts")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("--port must be between 1024 and 65535")
@@ -313,7 +314,7 @@ def main() -> None:
     pairing_code = f"{secrets.randbelow(1_000_000):06d}"
     live = LiveRGBDContract(RealSenseLiveSource()) if args.realsense_live else default_live()
     native_runner = LibrealsenseBagRunner(args.realsense_bag) if args.realsense_bag else None
-    dashboard = BenchmarkDashboardSource(args.benchmark_report, args.gate_report)
+    dashboard = BenchmarkDashboardSource(args.benchmark_report, args.gate_report, args.benchmark_history_dir)
     state = ConsoleState(args.bridge_url, token, pairing_code, live, native_runner, dashboard)
     print(f"Robot arm console: http://127.0.0.1:{args.port}")
     print(f"One-time pairing code: {pairing_code}")

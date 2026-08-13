@@ -89,6 +89,21 @@ input[type="range"] { width: 100%; accent-color: var(--green); }
 .benchmark-table td.bad { color: var(--red); }
 .failure-panel { margin-top: 14px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: rgba(4, 12, 8, .5); }
 .failure-panel ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font: .72rem/1.7 ui-monospace, monospace; }
+.trend-panel { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.trend-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.trend-head h3 { margin: 0 0 12px; font-size: 1rem; }
+.trend-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.trend-chart { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(4, 12, 8, .5); }
+.trend-title { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: .7rem; }
+.trend-title strong { color: var(--text); font: .72rem ui-monospace, monospace; }
+.trend-chart svg { display: block; width: 100%; height: 120px; margin-top: 8px; overflow: visible; }
+.trend-line { fill: none; stroke: var(--green); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.trend-marker { fill: var(--green); stroke: #07110d; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.trend-marker.regression { fill: var(--red); }
+.trend-legend { display: flex; justify-content: end; gap: 16px; margin-top: 9px; color: var(--muted); font: .65rem ui-monospace, monospace; }
+.trend-legend span { display: flex; align-items: center; gap: 6px; }
+.trend-legend i, .trend-legend b { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
+.trend-legend b { background: var(--red); border-radius: 1px; transform: rotate(45deg); }
 .scene-picker { display: grid; gap: 5px; min-width: 220px; }
 .scene-picker span { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; }
 .scene-picker select { color: var(--text); background: #07120d; border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; }
@@ -192,6 +207,7 @@ input[type="range"] { width: 100%; accent-color: var(--green); }
   .scene-picker select { width: 100%; min-width: 0; }
   .status-grid { grid-template-columns: 1fr 1fr; }
   .benchmark-meta { grid-template-columns: 1fr; }
+  .trend-grid { grid-template-columns: 1fr; }
   .pair-row { flex-direction: column; }
 }
 @media (max-width: 430px) {

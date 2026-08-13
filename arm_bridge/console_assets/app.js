@@ -43,13 +43,48 @@ function renderBenchmark(report) {
   $('#benchmarkFailures').replaceChildren(...failures.map((failure) => {
     const item = document.createElement('li'); item.textContent = failure; return item;
   }));
+  renderTrends(report.history || []);
+}
+
+function renderTrends(history) {
+  $('#trendCount').textContent = `${history.length} RUN${history.length === 1 ? '' : 'S'}`;
+  $('#trendEmpty').classList.toggle('hidden', history.length > 0);
+  $('#trendCharts').classList.toggle('hidden', history.length === 0);
+  const series = [
+    ['latency_p50_ms', 'Latency P50', 'ms'],
+    ['latency_p95_ms', 'Latency P95', 'ms'],
+    ['fps', 'Throughput', 'FPS'],
+  ];
+  $('#trendCharts').replaceChildren(...series.map(([key, label, unit]) => trendChart(history, key, label, unit)));
+}
+
+function trendChart(history, key, label, unit) {
+  const card = document.createElement('div'); card.className = 'trend-chart';
+  const title = document.createElement('div'); title.className = 'trend-title';
+  const latest = history.at(-1)?.metrics[key] ?? 0;
+  title.innerHTML = '<span></span><strong></strong>'; title.children[0].textContent = label; title.children[1].textContent = metricValue(latest, unit);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 320 120'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', `${label} trend across ${history.length} runs`);
+  const values = history.map((entry) => entry.metrics[key]);
+  const min = Math.min(...values), max = Math.max(...values), span = Math.max(max - min, max * .05, 1e-6);
+  const points = values.map((value, index) => `${20 + index * (280 / Math.max(values.length - 1, 1))},${95 - ((value - min) / span) * 70}`);
+  const line = document.createElementNS(svg.namespaceURI, 'polyline'); line.setAttribute('points', points.join(' ')); line.setAttribute('class', 'trend-line'); svg.append(line);
+  history.forEach((entry, index) => {
+    const [x, y] = points[index].split(',').map(Number);
+    const marker = document.createElementNS(svg.namespaceURI, entry.regression ? 'rect' : 'circle');
+    if (entry.regression) { marker.setAttribute('x', x - 4); marker.setAttribute('y', y - 4); marker.setAttribute('width', '8'); marker.setAttribute('height', '8'); marker.setAttribute('transform', `rotate(45 ${x} ${y})`); }
+    else { marker.setAttribute('cx', x); marker.setAttribute('cy', y); marker.setAttribute('r', '3.5'); }
+    marker.setAttribute('class', entry.regression ? 'trend-marker regression' : 'trend-marker');
+    svg.append(marker);
+  });
+  card.append(title, svg); return card;
 }
 
 async function loadBenchmark() {
   try {
     renderBenchmark(await api('/api/realsense/benchmark-dashboard'));
   } catch (error) {
-    renderBenchmark({ health: 'BLOCKED', gate_status: 'INVALID', verified_native: false, recording_sha256: '', metrics: [], failures: [error.message] });
+    renderBenchmark({ health: 'BLOCKED', gate_status: 'INVALID', verified_native: false, recording_sha256: '', metrics: [], failures: [error.message], history: [] });
     notify(error.message, true);
   }
 }
