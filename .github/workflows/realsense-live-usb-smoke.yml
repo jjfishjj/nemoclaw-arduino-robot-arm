@@ -1,0 +1,70 @@
+name: RealSense Live USB Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_serial:
+        description: Optional RealSense serial lock
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: realsense-live-usb-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: [self-hosted, linux, x64, realsense]
+    timeout-minutes: 10
+    env:
+      REPORT_DIR: artifacts/realsense-live-usb-smoke
+      EXPECTED_SERIAL: ${{ inputs.expected_serial }}
+    steps:
+      - name: Checkout trusted default branch without credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Create isolated Python environment
+        run: |
+          venv_path="$RUNNER_TEMP/realsense-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          python3 -m venv "$venv_path"
+          "$venv_path/bin/python" -m pip install --upgrade pip
+          "$venv_path/bin/python" -m pip install -e '.[realsense]'
+          echo "$venv_path/bin" >> "$GITHUB_PATH"
+
+      - name: Capture short aligned RGB-D sample
+        id: smoke
+        continue-on-error: true
+        run: |
+          python -m arm_bridge.realsense_live_smoke \
+            --expected-serial "$EXPECTED_SERIAL" \
+            --frames 15 \
+            --timeout-ms 3000 \
+            --min-valid-depth-ratio 0.70 \
+            --output "$REPORT_DIR/report.json" \
+            --summary "$REPORT_DIR/summary.md"
+
+      - name: Publish smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: realsense-live-usb-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.REPORT_DIR }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Append job summary
+        if: always()
+        run: cat "$REPORT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce smoke result
+        if: always()
+        env:
+          OUTCOME: ${{ steps.smoke.outcome }}
+        run: test "$OUTCOME" = success
