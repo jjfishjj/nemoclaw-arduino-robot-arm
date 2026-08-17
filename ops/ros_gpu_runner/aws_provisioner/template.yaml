@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Webhook-driven ephemeral GPU runner provisioner
+Parameters:
+  LambdaCodeBucket: {Type: String}
+  LambdaCodeKey: {Type: String}
+  LaunchTemplateId: {Type: String}
+  GitHubSecretArn: {Type: String}
+  RunnerVersion: {Type: String}
+  RunnerSha256: {Type: String}
+Resources:
+  ProvisionerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ProvisionOneJobRunner
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ec2:RunInstances, ec2:CreateTags]
+                Resource: '*'
+                Condition:
+                  StringEquals: {aws:RequestedRegion: !Ref 'AWS::Region'}
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref GitHubSecretArn
+              - Effect: Allow
+                Action: secretsmanager:CreateSecret
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:rover/ephemeral-runner/*
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: '*'
+  Provisioner:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Role: !GetAtt ProvisionerRole.Arn
+      Code: {S3Bucket: !Ref LambdaCodeBucket, S3Key: !Ref LambdaCodeKey}
+      Environment:
+        Variables:
+          LAUNCH_TEMPLATE_ID: !Ref LaunchTemplateId
+          GITHUB_SECRET_ARN: !Ref GitHubSecretArn
+          RUNNER_VERSION: !Ref RunnerVersion
+          RUNNER_SHA256: !Ref RunnerSha256
+  ProvisionerUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt Provisioner.Arn
+      AuthType: NONE
+      InvokeMode: BUFFERED
+  ProvisionerUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Provisioner
+      Action: lambda:InvokeFunctionUrl
+      Principal: '*'
+      FunctionUrlAuthType: NONE
+Outputs:
+  GitHubWebhookUrl:
+    Description: Configure as a workflow_job webhook; HMAC validation remains mandatory.
+    Value: !GetAtt ProvisionerUrl.FunctionUrl

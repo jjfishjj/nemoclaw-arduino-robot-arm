@@ -5,7 +5,9 @@
   "minimum_mean_stop_distance_m": 0.30,
   "maximum_timeout_rate": 0.0,
   "minimum_mean_real_time_factor": 0.75,
+  "minimum_mean_gazebo_update_fps": 20.0,
   "maximum_peak_gpu_memory_mib": 12000.0,
   "maximum_mean_planning_latency_ms": 750.0,
-  "maximum_mcap_size_mib": 2048.0
+  "maximum_mcap_size_mib": 2048.0,
+  "maximum_job_queue_seconds": 1800.0
 }

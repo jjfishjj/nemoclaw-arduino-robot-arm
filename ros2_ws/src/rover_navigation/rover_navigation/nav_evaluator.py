@@ -45,6 +45,7 @@ class NavigationEvaluator(Node):
         self.last_sim_time = None
         self.first_clock_wall_time = None
         self.last_clock_wall_time = None
+        self.clock_sample_count = 0
         self.create_subscription(Odometry, "/diff_drive_controller/odom", self.on_odom, 10)
         self.create_subscription(LaserScan, "/scan", self.on_scan, qos_profile_sensor_data)
         self.create_subscription(
@@ -62,6 +63,7 @@ class NavigationEvaluator(Node):
             self.first_clock_wall_time = wall_time
         self.last_sim_time = sim_time
         self.last_clock_wall_time = wall_time
+        self.clock_sample_count += 1
 
     def on_plan(self, _message):
         if self.plan_started_at is not None:
@@ -153,6 +155,14 @@ class NavigationEvaluator(Node):
             sum(self.planning_latencies) / len(self.planning_latencies)
             if self.planning_latencies else None
         )
+        gazebo_update_fps = None
+        if (
+            self.clock_sample_count > 1 and self.first_clock_wall_time is not None
+            and self.last_clock_wall_time is not None
+        ):
+            clock_wall_delta = self.last_clock_wall_time - self.first_clock_wall_time
+            if clock_wall_delta > 0.0:
+                gazebo_update_fps = (self.clock_sample_count - 1) / clock_wall_delta
         return {
             "schema_version": 3,
             "goal_count": len(poses),
@@ -174,6 +184,8 @@ class NavigationEvaluator(Node):
             "maximum_contact_penetration_m": self.maximum_penetration_depth,
             "contact_collision_definition": "new Gazebo base contact episode after 0.5 s clear gap",
             "real_time_factor": finite(real_time_factor) if real_time_factor is not None else None,
+            "gazebo_update_fps": finite(gazebo_update_fps) if gazebo_update_fps is not None else None,
+            "gazebo_update_fps_definition": "/clock update samples per wall-clock second",
             "mean_planning_latency_ms": finite(mean_planning_latency) if mean_planning_latency is not None else None,
             "planning_latency_sample_count": len(self.planning_latencies),
             "planning_latency_definition": "FollowWaypoints child-goal start to next /plan publication",

@@ -16,6 +16,7 @@ class BenchmarkTest(unittest.TestCase):
              "path_length_m": 4, "minimum_stop_distance_m": 0.4,
              "goal_count": 5, "contact_collision_events": 0,
              "real_time_factor": 0.9, "mean_planning_latency_ms": 100,
+             "gazebo_update_fps": 60,
              "peak_gpu_memory_mib": 3000, "peak_gpu_memory_utilization_ratio": 0.4,
              "peak_gpu_temperature_c": 60, "mean_gpu_utilization_percent": 50,
              "minimum_disk_free_gib": 80, "mcap_size_mib": 400},
@@ -23,6 +24,7 @@ class BenchmarkTest(unittest.TestCase):
              "path_length_m": 3, "minimum_stop_distance_m": None,
              "goal_count": 5, "contact_collision_events": 2,
              "real_time_factor": 0.8, "mean_planning_latency_ms": 200,
+             "gazebo_update_fps": 40,
              "peak_gpu_memory_mib": 4000, "peak_gpu_memory_utilization_ratio": 0.5,
              "peak_gpu_temperature_c": 65, "mean_gpu_utilization_percent": 70,
              "minimum_disk_free_gib": 70, "mcap_size_mib": 500},
@@ -32,6 +34,7 @@ class BenchmarkTest(unittest.TestCase):
         self.assertEqual(result["mean_waypoint_success_rate"], 0.8)
         self.assertEqual(result["contact_collision_rate_per_goal"], 0.2)
         self.assertAlmostEqual(result["mean_real_time_factor"], 0.85)
+        self.assertAlmostEqual(result["mean_gazebo_update_fps"], 50.0)
         self.assertEqual(result["mean_planning_latency_ms"], 150.0)
         self.assertEqual(result["peak_gpu_memory_mib"], 4000.0)
         self.assertEqual(result["maximum_mcap_size_mib"], 500.0)

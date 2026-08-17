@@ -138,9 +138,18 @@ planning latency, peak VRAM, peak temperature, minimum free disk, and MCAP size.
 time from the end of the queue-marker job until the GPU runner starts.
 
 The versioned gate currently requires RTF >= 0.75, mean plan latency <= 750 ms,
-peak VRAM <= 12000 MiB, and each MCAP <= 2048 MiB. Tune these limits only from a
+Gazebo `/clock` update rate >= 20 FPS, peak VRAM <= 12000 MiB, each MCAP <=
+2048 MiB, and approximate runner queue time <= 1800 seconds. Gate failures emit
+GitHub annotations naming the exact metric and limit. Tune these limits only from a
 reviewed baseline collected on the target GPU image; hardware changes should use
 a separate baseline rather than silently widening the same limits.
+
+An AWS reference adapter lives in `aws_provisioner/`. It validates the GitHub
+webhook signature, filters the exact trusted runner labels, launches idempotently
+from a pinned EC2 launch template, and uses a one-use Secrets Manager value so
+the registration token never appears in EC2 user-data. The VM powers itself off;
+EC2 maps that shutdown to termination. GCP and Azure adapters can implement the
+same webhook, label, one-use secret, image-ID, and four-hour dead-man contracts.
 
 ## Operations and security
 

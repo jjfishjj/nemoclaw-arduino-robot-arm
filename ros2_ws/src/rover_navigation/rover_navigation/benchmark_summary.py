@@ -38,6 +38,7 @@ def summarize(reports):
         "timed_out_trials": timed_out,
         "timeout_rate": timed_out / len(reports),
         "mean_real_time_factor": optional_mean("real_time_factor"),
+        "mean_gazebo_update_fps": optional_mean("gazebo_update_fps"),
         "mean_planning_latency_ms": optional_mean("mean_planning_latency_ms"),
         "peak_gpu_memory_mib": optional_max("peak_gpu_memory_mib"),
         "peak_gpu_memory_utilization_ratio": optional_max("peak_gpu_memory_utilization_ratio"),

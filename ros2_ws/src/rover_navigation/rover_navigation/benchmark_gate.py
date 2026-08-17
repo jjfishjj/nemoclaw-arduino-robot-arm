@@ -13,6 +13,7 @@ def evaluate_gate(report, thresholds):
             ("contact_collision_rate_per_goal", "maximum_contact_collision_rate_per_goal", "<="),
             ("mean_minimum_stop_distance_m", "minimum_mean_stop_distance_m", ">="),
             ("mean_real_time_factor", "minimum_mean_real_time_factor", ">="),
+            ("mean_gazebo_update_fps", "minimum_mean_gazebo_update_fps", ">="),
             ("peak_gpu_memory_mib", "maximum_peak_gpu_memory_mib", "<="),
             ("mean_planning_latency_ms", "maximum_mean_planning_latency_ms", "<="),
             ("maximum_mcap_size_mib", "maximum_mcap_size_mib", "<="),
@@ -24,6 +25,7 @@ def evaluate_gate(report, thresholds):
             ("contact_collision_rate", "maximum_contact_collision_rate_per_goal", "<="),
             ("minimum_stop_distance_m", "minimum_mean_stop_distance_m", ">="),
             ("real_time_factor", "minimum_mean_real_time_factor", ">="),
+            ("gazebo_update_fps", "minimum_mean_gazebo_update_fps", ">="),
             ("peak_gpu_memory_mib", "maximum_peak_gpu_memory_mib", "<="),
             ("mean_planning_latency_ms", "maximum_mean_planning_latency_ms", "<="),
             ("mcap_size_mib", "maximum_mcap_size_mib", "<="),
@@ -31,6 +33,8 @@ def evaluate_gate(report, thresholds):
         timeout_rate = 1.0 if report.get("timed_out") else 0.0
     for metric, threshold_name, operator in checks:
         value = report.get(metric)
+        if threshold_name not in thresholds:
+            continue
         limit = thresholds[threshold_name]
         if value is None:
             violations.append(f"{metric}: missing (required for gate)")
@@ -44,18 +48,41 @@ def evaluate_gate(report, thresholds):
     return violations
 
 
+def attach_runner_metrics(report, runner_metrics):
+    merged = dict(report)
+    if runner_metrics:
+        merged["job_queue_seconds"] = runner_metrics.get("job_queue_seconds")
+        merged["runner_image_id"] = runner_metrics.get("image_id")
+    return merged
+
+
 def main(args=None):
     parser = argparse.ArgumentParser(description="Fail CI when Rover benchmark safety regresses")
     parser.add_argument("report", help="Trial or summary JSON")
     parser.add_argument("thresholds", help="Versioned threshold JSON")
+    parser.add_argument("--runner-metrics", help="Optional ephemeral runner telemetry JSON")
     options = parser.parse_args(args)
     report = json.loads(Path(options.report).read_text())
+    if options.runner_metrics:
+        report = attach_runner_metrics(
+            report, json.loads(Path(options.runner_metrics).read_text())
+        )
     thresholds = json.loads(Path(options.thresholds).read_text())
     violations = evaluate_gate(report, thresholds)
+    if "maximum_job_queue_seconds" in thresholds:
+        queue_seconds = report.get("job_queue_seconds")
+        if queue_seconds is None:
+            violations.append("job_queue_seconds: missing (required for gate)")
+        elif float(queue_seconds) > float(thresholds["maximum_job_queue_seconds"]):
+            violations.append(
+                f"job_queue_seconds: {queue_seconds} > allowed "
+                f"{thresholds['maximum_job_queue_seconds']}"
+            )
     if violations:
         print("FAIL: benchmark gate rejected the report")
         for violation in violations:
             print(f"- {violation}")
+            print(f"::error title=Rover benchmark regression::{violation}")
         raise SystemExit(1)
     print("PASS: benchmark meets all navigation and safety thresholds")
 

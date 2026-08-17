@@ -91,6 +91,16 @@ jobs:
           ros2 run rover_bringup run_random_benchmark.sh \
             "$ROVER_BENCHMARK_MAP" "$TRIALS" "$REPORT_DIR"
 
+      - name: Gate runner queue and complete performance telemetry
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source ros2_ws/install/setup.bash
+          ros2 run rover_navigation benchmark_gate \
+            "$REPORT_DIR/summary.json" \
+            "ros2_ws/install/rover_navigation/share/rover_navigation/config/benchmark_thresholds.json" \
+            --runner-metrics "$REPORT_DIR/runner_metrics.json"
+
       - name: Publish JSON, HTML, logs, worlds, and MCAP evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -47,6 +47,15 @@ def main() -> int:
     cloud_init = (OPS / "cloud-init.example.yaml").read_text()
     for contract in ("SuccessAction=poweroff", "FailureAction=poweroff", "RuntimeMaxSec=3h"):
         require(contract in cloud_init, f"cloud-init teardown contract missing: {contract}")
+    aws_handler = (OPS / "aws_provisioner/handler.py").read_text()
+    for contract in (
+        "x-hub-signature-256", "workflow_job", "ClientToken=", "InstanceInitiatedShutdownBehavior",
+        '"terminate"', "create_secret", "delete-secret", "REQUIRED_LABELS",
+    ):
+        require(contract in aws_handler, f"AWS provisioner contract missing: {contract}")
+    require("RUNNER_TOKEN={token}" in aws_handler, "boot secret must carry the registration token")
+    require("RUNNER_TOKEN={token}" not in aws_handler.split("def _user_data", 1)[1],
+            "EC2 user-data must not contain the registration token")
     print("PASS: self-hosted ROS/GPU runner bundle contracts agree")
     return 0
 
