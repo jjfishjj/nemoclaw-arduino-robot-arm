@@ -1,0 +1,38 @@
+name: ROS 2 Rover Benchmark Gate
+
+on:
+  push:
+    paths:
+      - "ros2_ws/**"
+      - ".github/workflows/ros2-rover-benchmark-gate.yml"
+  pull_request:
+    paths:
+      - "ros2_ws/**"
+      - ".github/workflows/ros2-rover-benchmark-gate.yml"
+  workflow_dispatch:
+
+jobs:
+  offline-safety-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit and workspace contracts
+        run: |
+          PYTHONPATH=ros2_ws/src/rover_navigation python3 -m unittest discover \
+            -s ros2_ws/src/rover_navigation/test -p 'test_*.py'
+          python3 ros2_ws/tools/validate_rover_workspace.py
+      - name: Enforce versioned benchmark thresholds
+        run: |
+          PYTHONPATH=ros2_ws/src/rover_navigation python3 -m rover_navigation.benchmark_gate \
+            ros2_ws/test_data/benchmark/ci_baseline_summary.json \
+            ros2_ws/src/rover_navigation/config/benchmark_thresholds.json
+      - name: Build standalone evidence dashboard
+        run: |
+          mkdir -p ros2_ws/ci-artifacts
+          PYTHONPATH=ros2_ws/src/rover_navigation python3 -m rover_navigation.dashboard_report \
+            ros2_ws/ci-artifacts/baseline-dashboard.html \
+            ros2_ws/src/rover_navigation/config/sample_trial_1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rover-baseline-dashboard
+          path: ros2_ws/ci-artifacts/baseline-dashboard.html

@@ -1,0 +1,7 @@
+{
+  "joint_names": ["Rotation", "Pitch", "Elbow", "Wrist_Pitch", "Wrist_Roll", "Jaw"],
+  "points": [
+    {"positions": [0.0, -0.5, 1.0, 0.4, 0.0, 0.2], "time_from_start_s": 1.0},
+    {"positions": [0.2, -0.4, 0.9, 0.3, 0.1, 0.0], "velocities": [0, 0, 0, 0, 0, 0], "time_from_start_s": 2.0}
+  ]
+}

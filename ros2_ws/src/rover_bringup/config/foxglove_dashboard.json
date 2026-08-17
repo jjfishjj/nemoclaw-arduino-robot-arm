@@ -1,0 +1,18 @@
+{
+  "name": "Rover Forge Live Operations",
+  "connection": "ws://localhost:8765",
+  "panels": [
+    {"panel": "3D", "topics": ["/map", "/scan", "/plan", "/tf", "/tf_static"]},
+    {"panel": "Image", "topics": ["/camera/image_raw"]},
+    {"panel": "Plot", "paths": ["/diff_drive_controller/odom.twist.twist.linear.x", "/cmd_vel_nav.linear.x", "/cmd_vel_safety.linear.x", "/cmd_vel_safe.linear.x"]},
+    {"panel": "State Transitions", "paths": ["/collision_monitor_state.action_type", "/safety_state.data"]},
+    {"panel": "Gauge", "paths": ["/closest_obstacle_range.data"]},
+    {"panel": "Raw Messages", "topics": ["/bumper/contacts", "/collision_monitor_state"]},
+    {"panel": "Topic Graph", "topics": []}
+  ],
+  "notes": {
+    "frames": "Fixed frame: map; follow frame: base_footprint",
+    "action_types": "CollisionMonitorState: 0 none, 1 stop, 2 slowdown, 3 approach",
+    "purpose": "This stable manifest documents the desired layout without depending on Foxglove private export JSON internals."
+  }
+}

@@ -1,0 +1,102 @@
+name: ROS 2 Rover GPU Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      trials:
+        description: Number of deterministic randomized Gazebo trials
+        required: true
+        default: "5"
+        type: choice
+        options: ["1", "3", "5", "10"]
+  schedule:
+    - cron: "17 18 * * 1-5"
+
+concurrency:
+  group: ros2-rover-gpu-benchmark
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  queue-marker:
+    runs-on: ubuntu-24.04
+    outputs:
+      ready_epoch: ${{ steps.marker.outputs.ready_epoch }}
+    steps:
+      - id: marker
+        run: echo "ready_epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+  gazebo-gpu-benchmark:
+    needs: queue-marker
+    runs-on: [self-hosted, linux, x64, ros2-jazzy, gpu, gazebo, ephemeral]
+    timeout-minutes: 120
+    env:
+      ROS_DISTRO: jazzy
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      ROVER_BENCHMARK_MAP: ${{ vars.ROVER_BENCHMARK_MAP || '/opt/rover/maps/rover_map.yaml' }}
+      TRIALS: ${{ inputs.trials || '5' }}
+      REPORT_DIR: ${{ github.workspace }}/ros2_ws/ci-artifacts/gpu-benchmark
+      JOB_READY_EPOCH: ${{ needs.queue-marker.outputs.ready_epoch }}
+      REQUIRE_EPHEMERAL_RUNNER: "1"
+    steps:
+      - name: Capture runner and queue telemetry
+        shell: bash
+        run: |
+          started_epoch="$(date +%s)"
+          queue_seconds=$((started_epoch - JOB_READY_EPOCH))
+          if ((queue_seconds < 0)); then queue_seconds=0; fi
+          test -s /etc/rover-gpu-image-id
+          STARTED_EPOCH="$started_epoch" QUEUE_SECONDS="$queue_seconds" \
+            python3 -c 'import json, os, pathlib, platform; image=pathlib.Path("/etc/rover-gpu-image-id").read_text().strip(); boot=pathlib.Path("/proc/sys/kernel/random/boot_id").read_text().strip(); p=pathlib.Path(os.environ["RUNNER_TEMP"])/"runner_metrics.json"; p.write_text(json.dumps({"schema_version":1,"ephemeral":True,"image_id":image,"boot_id":boot,"runner_name":os.environ.get("RUNNER_NAME"),"runner_os":os.environ.get("RUNNER_OS"),"runner_arch":os.environ.get("RUNNER_ARCH"),"hostname":platform.node(),"job_ready_epoch":int(os.environ["JOB_READY_EPOCH"]),"job_started_epoch":int(os.environ["STARTED_EPOCH"]),"job_queue_seconds":int(os.environ["QUEUE_SECONDS"])},indent=2,sort_keys=True)+"\n")'
+
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Preserve runner telemetry with benchmark evidence
+        run: |
+          mkdir -p "$REPORT_DIR"
+          cp "$RUNNER_TEMP/runner_metrics.json" "$REPORT_DIR/runner_metrics.json"
+
+      - name: Verify trusted ROS/GPU runner
+        run: ops/ros_gpu_runner/preflight.sh
+
+      - name: Validate repository contracts
+        run: |
+          python3 ops/ros_gpu_runner/validate_bundle.py
+          PYTHONPATH=ros2_ws/src/rover_navigation python3 -m unittest discover \
+            -s ros2_ws/src/rover_navigation/test -p 'test_*.py'
+          PYTHONPATH=ros2_ws/src/rover_perception python3 -m unittest discover \
+            -s ros2_ws/src/rover_perception/test -p 'test_*.py'
+          python3 ros2_ws/tools/validate_rover_workspace.py
+
+      - name: Resolve dependencies and build
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd ros2_ws
+          rosdep check --from-paths src --ignore-src
+          colcon build --symlink-install --event-handlers console_direct+
+
+      - name: Run randomized Gazebo benchmark with MCAP gate
+        shell: bash
+        run: |
+          test -r "$ROVER_BENCHMARK_MAP"
+          source /opt/ros/jazzy/setup.bash
+          source ros2_ws/install/setup.bash
+          mkdir -p "$REPORT_DIR"
+          ros2 run rover_bringup run_random_benchmark.sh \
+            "$ROVER_BENCHMARK_MAP" "$TRIALS" "$REPORT_DIR"
+
+      - name: Publish JSON, HTML, logs, worlds, and MCAP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rover-gpu-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ros2_ws/ci-artifacts/gpu-benchmark/
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 0

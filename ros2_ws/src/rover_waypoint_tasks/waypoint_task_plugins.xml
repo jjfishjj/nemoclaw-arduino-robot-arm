@@ -1,0 +1,7 @@
+<library path="mission_task_executor">
+  <class name="rover_waypoint_tasks::MissionTaskExecutor"
+         type="rover_waypoint_tasks::MissionTaskExecutor"
+         base_class_type="nav2_core::WaypointTaskExecutor">
+    <description>Saves camera or LiDAR snapshots and supports file-based operator confirmation.</description>
+  </class>
+</library>

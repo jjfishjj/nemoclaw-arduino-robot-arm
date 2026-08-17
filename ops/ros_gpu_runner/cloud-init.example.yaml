@@ -1,0 +1,33 @@
+#cloud-config
+# This is an image/bootstrap contract, not a place for secrets. Inject the
+# short-lived RUNNER_TOKEN and the other values through your provider's secret
+# metadata mechanism, then start run_ephemeral_once.sh as the gha-runner user.
+users:
+  - name: gha-runner
+    groups: [docker]
+    shell: /bin/bash
+    sudo: ["NOPASSWD:/usr/local/sbin/destroy-ephemeral-runner *"]
+
+write_files:
+  - path: /etc/systemd/system/ephemeral-gpu-runner.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=One-job ROS GPU GitHub runner
+      After=network-online.target
+      Wants=network-online.target
+      SuccessAction=poweroff
+      FailureAction=poweroff
+      [Service]
+      Type=oneshot
+      User=gha-runner
+      EnvironmentFile=/run/secrets/ephemeral-runner.env
+      ExecStart=/opt/rover-repo/ops/ros_gpu_runner/run_ephemeral_once.sh
+      RuntimeMaxSec=3h
+      TimeoutStopSec=2min
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, ephemeral-gpu-runner.service]

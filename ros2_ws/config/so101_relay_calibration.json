@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "physical_verified": false,
+  "description": "Presentation baseline only. Measure and update the physical SO-101 before real motion.",
+  "joints": {
+    "Rotation": {"hardware_units_per_rad": 57.29577951308232, "hardware_zero": 0.0},
+    "Pitch": {"hardware_units_per_rad": 57.29577951308232, "hardware_zero": 0.0},
+    "Elbow": {"hardware_units_per_rad": 57.29577951308232, "hardware_zero": 0.0},
+    "Wrist_Pitch": {"hardware_units_per_rad": 57.29577951308232, "hardware_zero": 0.0},
+    "Wrist_Roll": {"hardware_units_per_rad": 57.29577951308232, "hardware_zero": 0.0},
+    "Jaw": {"hardware_units_per_rad": 142.85714285714286, "hardware_zero": 0.0}
+  }
+}

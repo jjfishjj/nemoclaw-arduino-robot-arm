@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "trial_count": 10,
+  "successful_trials": 10,
+  "trial_success_rate": 1.0,
+  "mean_waypoint_success_rate": 0.98,
+  "mean_elapsed_seconds": 61.2,
+  "mean_path_length_m": 7.9,
+  "mean_minimum_stop_distance_m": 0.42,
+  "total_contact_collision_events": 0,
+  "contact_collision_rate_per_goal": 0.0,
+  "timed_out_trials": 0,
+  "timeout_rate": 0.0,
+  "mean_real_time_factor": 0.96,
+  "peak_gpu_memory_mib": 4210.0,
+  "mean_planning_latency_ms": 184.0,
+  "maximum_mcap_size_mib": 612.0
+}

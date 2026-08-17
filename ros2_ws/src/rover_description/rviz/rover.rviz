@@ -1,0 +1,84 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+    - Class: rviz_default_plugins/RobotModel
+      Name: Robot Model
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+    - Class: rviz_default_plugins/LaserScan
+      Name: 2D LiDAR
+      Enabled: true
+      Topic:
+        Value: /scan
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+      Size (Pixels): 3
+      Style: Points
+      Color: 255; 80; 50
+    - Class: rviz_default_plugins/Map
+      Name: Local Costmap
+      Enabled: true
+      Topic:
+        Value: /local_costmap/costmap
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+      Color Scheme: costmap
+      Alpha: 0.55
+    - Class: rviz_default_plugins/Map
+      Name: SLAM Map
+      Enabled: true
+      Topic:
+        Value: /map
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+      Color Scheme: map
+      Alpha: 0.70
+    - Class: rviz_default_plugins/Path
+      Name: MPPI Plan
+      Enabled: true
+      Topic:
+        Value: /plan
+      Line Style: Lines
+      Line Width: 0.03
+      Color: 50; 220; 255
+    - Class: rviz_default_plugins/Polygon
+      Name: Collision Stop Zone
+      Enabled: true
+      Topic:
+        Value: /collision_monitor/velocity_stop_zone
+      Color: 255; 40; 40
+      Alpha: 0.45
+    - Class: rviz_default_plugins/Polygon
+      Name: Collision Slow Zone
+      Enabled: true
+      Topic:
+        Value: /collision_monitor/slow_zone
+      Color: 255; 190; 30
+      Alpha: 0.28
+  Global Options:
+    Fixed Frame: map
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic:
+        Value: /initialpose
+    - Class: nav2_rviz_plugins/GoalTool
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 2.2
+      Pitch: 0.55
+      Yaw: 0.75
