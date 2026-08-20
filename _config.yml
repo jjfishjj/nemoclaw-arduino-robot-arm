@@ -1,0 +1,10 @@
+theme: jekyll-theme-cayman
+title: nemoclaw arduino robot arm
+description: >-
+  Safety-first NemoClaw/OpenClaw control bridge for an Arduino robot arm
+exclude:
+  - venv
+  - node_modules
+  - "*.py"
+  - "*.usda"
+  - requirements.txt
