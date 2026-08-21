@@ -1,0 +1,33 @@
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: null
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+
+  mosquitto:
+    command: ["mosquitto", "-c", "/mosquitto/config/mosquitto.tls.conf"]
+    ports: ["8883:8883"]
+    volumes:
+      - ./mosquitto/mosquitto.tls.conf:/mosquitto/config/mosquitto.tls.conf:ro
+      - ./secrets/mosquitto:/mosquitto/certs:ro
+      - ./secrets/mosquitto/passwords:/mosquitto/config/passwords:ro
+
+  edge-service:
+    environment:
+      MQTT_PORT: 8883
+      MQTT_CA_CERT: /run/secrets/mqtt_ca
+      MQTT_CLIENT_CERT: /run/secrets/mqtt_client_cert
+      MQTT_CLIENT_KEY: /run/secrets/mqtt_client_key
+      DATABASE_URL: null
+      DATABASE_URL_FILE: /run/secrets/database_url
+      API_KEY_FILE: /run/secrets/api_key
+    secrets: [database_url, api_key, mqtt_ca, mqtt_client_cert, mqtt_client_key]
+
+secrets:
+  postgres_password: {file: ./secrets/postgres_password.txt}
+  database_url: {file: ./secrets/database_url.txt}
+  api_key: {file: ./secrets/api_key.txt}
+  mqtt_ca: {file: ./secrets/mosquitto/ca.crt}
+  mqtt_client_cert: {file: ./secrets/mosquitto/client.crt}
+  mqtt_client_key: {file: ./secrets/mosquitto/client.key}

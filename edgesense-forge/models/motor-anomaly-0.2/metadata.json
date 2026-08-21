@@ -1,0 +1,29 @@
+{
+  "model_id": "motor-anomaly-0.2",
+  "model_version": "0.2.0",
+  "format": "ONNX",
+  "opset": 17,
+  "input_name": "features",
+  "input_shape": [
+    "batch",
+    2
+  ],
+  "features": [
+    {
+      "name": "temperature_c",
+      "unit": "°C",
+      "mean": 50.0,
+      "scale": 15.0
+    },
+    {
+      "name": "accel_rms_g",
+      "unit": "g",
+      "mean": 0.4,
+      "scale": 0.5
+    }
+  ],
+  "output_name": "anomaly_score",
+  "default_threshold": 0.7,
+  "purpose": "Deterministic prototype scorer; not a certified predictive-maintenance model.",
+  "sha256": "7a446063c6deb5da545bc14c64660bc13cfe09bbed8fa0dd33683605b651f35a"
+}
