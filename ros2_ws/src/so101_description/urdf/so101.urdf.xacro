@@ -1,0 +1,131 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="so101_demo">
+  <!-- This is a primitive, simulation-only model. It is not a measured SO-101 CAD model. -->
+  <material name="dark"><color rgba="0.12 0.15 0.18 1"/></material>
+  <material name="orange"><color rgba="0.95 0.38 0.08 1"/></material>
+  <material name="light"><color rgba="0.72 0.76 0.80 1"/></material>
+
+  <xacro:macro name="box_link" params="name length width height mass material">
+    <link name="${name}">
+      <inertial>
+        <origin xyz="${length / 2} 0 0"/>
+        <mass value="${mass}"/>
+        <inertia
+          ixx="${mass * (width * width + height * height) / 12}"
+          ixy="0" ixz="0"
+          iyy="${mass * (length * length + height * height) / 12}"
+          iyz="0"
+          izz="${mass * (length * length + width * width) / 12}"/>
+      </inertial>
+      <visual>
+        <origin xyz="${length / 2} 0 0"/>
+        <geometry><box size="${length} ${width} ${height}"/></geometry>
+        <material name="${material}"/>
+      </visual>
+      <collision>
+        <origin xyz="${length / 2} 0 0"/>
+        <geometry><box size="${length} ${width} ${height}"/></geometry>
+      </collision>
+    </link>
+  </xacro:macro>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0.025"/>
+      <mass value="0.45"/>
+      <inertia ixx="0.00075" ixy="0" ixz="0" iyy="0.00075" iyz="0" izz="0.00120"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.025"/>
+      <geometry><box size="0.09 0.09 0.05"/></geometry>
+      <material name="dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.025"/>
+      <geometry><box size="0.09 0.09 0.05"/></geometry>
+    </collision>
+  </link>
+
+  <xacro:box_link name="rotation_link" length="0.07" width="0.07" height="0.07" mass="0.18" material="light"/>
+  <xacro:box_link name="upper_arm_link" length="0.19" width="0.045" height="0.045" mass="0.24" material="orange"/>
+  <xacro:box_link name="forearm_link" length="0.17" width="0.04" height="0.04" mass="0.20" material="light"/>
+  <xacro:box_link name="wrist_pitch_link" length="0.055" width="0.045" height="0.045" mass="0.10" material="orange"/>
+  <xacro:box_link name="wrist_roll_link" length="0.05" width="0.045" height="0.045" mass="0.08" material="light"/>
+  <xacro:box_link name="jaw_link" length="0.075" width="0.012" height="0.018" mass="0.035" material="orange"/>
+  <xacro:box_link name="fixed_finger_link" length="0.075" width="0.012" height="0.018" mass="0.035" material="light"/>
+
+  <joint name="Rotation" type="revolute">
+    <parent link="base_link"/><child link="rotation_link"/>
+    <origin xyz="0 0 0.05"/><axis xyz="0 0 1"/>
+    <limit lower="-1.57" upper="1.57" effort="2.0" velocity="1.0"/>
+  </joint>
+  <joint name="Pitch" type="revolute">
+    <parent link="rotation_link"/><child link="upper_arm_link"/>
+    <origin xyz="0.07 0 0.035"/><axis xyz="0 1 0"/>
+    <limit lower="-1.35" upper="1.35" effort="2.0" velocity="1.0"/>
+  </joint>
+  <joint name="Elbow" type="revolute">
+    <parent link="upper_arm_link"/><child link="forearm_link"/>
+    <origin xyz="0.19 0 0"/><axis xyz="0 1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="1.5" velocity="1.2"/>
+  </joint>
+  <joint name="Wrist_Pitch" type="revolute">
+    <parent link="forearm_link"/><child link="wrist_pitch_link"/>
+    <origin xyz="0.17 0 0"/><axis xyz="0 1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="1.0" velocity="1.4"/>
+  </joint>
+  <joint name="Wrist_Roll" type="revolute">
+    <parent link="wrist_pitch_link"/><child link="wrist_roll_link"/>
+    <origin xyz="0.055 0 0"/><axis xyz="1 0 0"/>
+    <limit lower="-1.57" upper="1.57" effort="0.8" velocity="1.5"/>
+  </joint>
+  <joint name="Jaw" type="revolute">
+    <parent link="wrist_roll_link"/><child link="jaw_link"/>
+    <origin xyz="0.05 0.015 0"/><axis xyz="0 0 1"/>
+    <limit lower="0.0" upper="0.70" effort="0.5" velocity="1.0"/>
+  </joint>
+  <joint name="fixed_finger_joint" type="fixed">
+    <parent link="wrist_roll_link"/><child link="fixed_finger_link"/>
+    <origin xyz="0.05 -0.015 0"/>
+  </joint>
+
+  <ros2_control name="So101GazeboSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <joint name="Rotation">
+      <command_interface name="position"><param name="min">-1.57</param><param name="max">1.57</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="Pitch">
+      <command_interface name="position"><param name="min">-1.35</param><param name="max">1.35</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="Elbow">
+      <command_interface name="position"><param name="min">-1.57</param><param name="max">1.57</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="Wrist_Pitch">
+      <command_interface name="position"><param name="min">-1.57</param><param name="max">1.57</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="Wrist_Roll">
+      <command_interface name="position"><param name="min">-1.57</param><param name="max">1.57</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="Jaw">
+      <command_interface name="position"><param name="min">0.0</param><param name="max">0.70</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find so101_gazebo_bringup)/config/so101_controllers.yaml</parameters>
+      <hold_joints>true</hold_joints>
+      <ros>
+        <remapping>/joint_states:=/so101/joint_states</remapping>
+      </ros>
+    </plugin>
+  </gazebo>
+</robot>
