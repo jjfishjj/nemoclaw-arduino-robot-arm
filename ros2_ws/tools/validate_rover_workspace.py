@@ -215,6 +215,8 @@ def main() -> int:
     for contract in ("savePhoto", "saveScan", "waitForConfirmation", "PLUGINLIB_EXPORT_CLASS"):
         require(contract in task_text, f"waypoint task plugin contract missing: {contract}")
     ET.parse(TASK_XML)
+    from validate_so101_gazebo import main as validate_so101_gazebo
+    validate_so101_gazebo()
     print("PASS: contact sensor, task plugin, randomized benchmark, navigation, safety, SLAM, and Gazebo contracts agree")
     return 0
 

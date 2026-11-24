@@ -19,17 +19,17 @@ def test_valid_move_updates_mock_state():
     assert result["state"]["base"] == 120
 
 
-@pytest.mark.parametrize("request", [
+@pytest.mark.parametrize("move_request", [
     {"command": "move", "joints": {"base": 180}},
     {"command": "move", "joints": {"wrist": 90}},
     {"command": "move", "joints": {"base": 90.5}},
     {"command": "move", "joints": {"base": 90}, "duration_ms": 9999},
 ])
-def test_rejects_unsafe_move(request):
+def test_rejects_unsafe_move(move_request):
     arm = controller()
     arm.execute({"command": "arm"})
     with pytest.raises(SafetyError):
-        arm.execute(request)
+        arm.execute(move_request)
 
 
 def test_stop_disarms():
@@ -37,4 +37,3 @@ def test_stop_disarms():
     arm.execute({"command": "arm"})
     arm.execute({"command": "stop"})
     assert arm.status()["armed"] is False
-

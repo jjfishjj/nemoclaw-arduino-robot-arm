@@ -394,6 +394,46 @@ This workspace is the typed boundary between Isaac Sim, the physical-arm
 safety bridge, and the presentation dashboard. It targets ROS 2 Jazzy on
 Ubuntu 24.04 and remains compatible at the message level with Humble.
 
+## SO-101 simplified Gazebo arm (simulation only)
+
+The `so101_description` and `so101_gazebo_bringup` packages add a six-joint
+Gazebo Harmonic model with a `ros2_control` trajectory controller. It reuses the
+contract joint order below and exposes `/so101/joint_states`, the
+`/so101/joint_trajectory` command topic, and the
+`/so101/follow_joint_trajectory` action. The primitive link geometry and joint
+limits are illustrative placeholders, not measured SO-101 CAD or calibrated
+hardware limits. This launch path uses `gz_ros2_control/GazeboSimSystem` only;
+it does not open a serial port or actuate physical hardware.
+
+On Ubuntu 24.04 with ROS 2 Jazzy, install Gazebo Harmonic integration and build:
+
+```bash
+sudo apt install ros-jazzy-ros-gz ros-jazzy-gz-ros2-control
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch so101_gazebo_bringup gazebo_so101.launch.py
+```
+
+For a headless session, use `headless:=true`. In another sourced terminal,
+observe state and send a bounded simulated trajectory:
+
+```bash
+ros2 topic echo /so101/joint_states
+ros2 action send_goal --feedback /so101/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [Rotation, Pitch, Elbow, Wrist_Pitch, Wrist_Roll, Jaw], points: [{positions: [0.0, -0.2, 0.4, 0.1, 0.0, 0.2], time_from_start: {sec: 2}}]}}"
+```
+
+The simulation scaffold is not a safety certification or a real-arm calibration.
+Do not connect its controller output to the physical bridge until the actual
+robot description, joint limits, calibration, and independent emergency-stop
+path have been reviewed and verified. Hosts without ROS can run the structural
+contract check with `python3 tools/validate_so101_gazebo.py`; that check
+does not claim to run Gazebo physics.
+
 ## Topics
 
 | Name | Type | Producer → consumer | Contract |

@@ -1,0 +1,11 @@
+{
+  "minimum_trial_success_rate": 0.90,
+  "minimum_waypoint_success_rate": 0.95,
+  "maximum_contact_collision_rate_per_goal": 0.0,
+  "minimum_mean_stop_distance_m": 0.30,
+  "maximum_timeout_rate": 0.0,
+  "minimum_mean_real_time_factor": 0.75,
+  "maximum_peak_gpu_memory_mib": 12000.0,
+  "maximum_mean_planning_latency_ms": 750.0,
+  "maximum_mcap_size_mib": 2048.0
+}

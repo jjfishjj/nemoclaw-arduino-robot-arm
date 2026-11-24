@@ -1,0 +1,27 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    so101:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+so101:
+  ros__parameters:
+    joints: [Rotation, Pitch, Elbow, Wrist_Pitch, Wrist_Roll, Jaw]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: false
+    allow_nonzero_velocity_at_trajectory_end: false
+    cmd_timeout: 0.5
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 1.0
+      Rotation: {trajectory: 0.15, goal: 0.08}
+      Pitch: {trajectory: 0.15, goal: 0.08}
+      Elbow: {trajectory: 0.15, goal: 0.08}
+      Wrist_Pitch: {trajectory: 0.18, goal: 0.10}
+      Wrist_Roll: {trajectory: 0.18, goal: 0.10}
+      Jaw: {trajectory: 0.20, goal: 0.12}

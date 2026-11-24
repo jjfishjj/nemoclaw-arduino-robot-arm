@@ -45,6 +45,15 @@ def evaluate_gate(report, thresholds):
     max_timeout = thresholds["maximum_timeout_rate"]
     if timeout_rate > max_timeout:
         violations.append(f"timeout_rate: {timeout_rate} > allowed {max_timeout}")
+    if "maximum_job_queue_seconds" in thresholds:
+        queue_seconds = report.get("job_queue_seconds")
+        if queue_seconds is None:
+            violations.append("job_queue_seconds: missing (required for gate)")
+        elif float(queue_seconds) > float(thresholds["maximum_job_queue_seconds"]):
+            violations.append(
+                f"job_queue_seconds: {queue_seconds} > allowed "
+                f"{thresholds['maximum_job_queue_seconds']}"
+            )
     return violations
 
 
@@ -69,15 +78,6 @@ def main(args=None):
         )
     thresholds = json.loads(Path(options.thresholds).read_text())
     violations = evaluate_gate(report, thresholds)
-    if "maximum_job_queue_seconds" in thresholds:
-        queue_seconds = report.get("job_queue_seconds")
-        if queue_seconds is None:
-            violations.append("job_queue_seconds: missing (required for gate)")
-        elif float(queue_seconds) > float(thresholds["maximum_job_queue_seconds"]):
-            violations.append(
-                f"job_queue_seconds: {queue_seconds} > allowed "
-                f"{thresholds['maximum_job_queue_seconds']}"
-            )
     if violations:
         print("FAIL: benchmark gate rejected the report")
         for violation in violations:

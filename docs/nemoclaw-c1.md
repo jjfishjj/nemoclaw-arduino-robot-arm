@@ -16,8 +16,10 @@ python -m arm_bridge.secure_server \
   --token-file /tmp/arduino-arm-token
 ```
 
-The command above stays in mock mode. For real hardware, add the serial port,
-`--allow-real-motion`, and keep the startup checklist enabled by default:
+The command above stays in mock mode. The supported controller is Arduino4;
+SO-101 remains a ROS 2 simulation scaffold. For real hardware, explicitly add
+the serial port and `--allow-real-motion`. Startup-checklist enforcement is not
+implemented yet, so passing `--require-startup-checklist` is rejected:
 
 ```bash
 python -m arm_bridge.secure_server \

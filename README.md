@@ -29,6 +29,7 @@ firmware), and mock mode is the default.
 - Defense in depth across agent skill, host validation, firmware limits, interlock, and watchdog.
 - A mock-first development path that can be tested without connecting physical hardware.
 - A practical bridge from NVIDIA agent workflows toward ROS 2 / Isaac Sim sim-to-real validation.
+- ROS 2 Jazzy / Gazebo Harmonic rover simulation plus a simulation-only six-joint SO-101 scaffold.
 
 ## Repository layout
 
@@ -38,7 +39,8 @@ firmware), and mock mode is the default.
 ├── firmware/            # Robot controller and calibration sketches
 ├── openclaw-skill/      # Narrow agent-facing commands
 ├── docs/                # Wiring and first-motion safety checklist
-├── tests/               # Mock-mode behavioral tests
+├── ros2_ws/              # ROS 2 rover + SO-101/Gazebo simulation workspace
+├── tests/                # Mock-mode behavioral tests
 └── pyproject.toml        # Package metadata and command entry points
 ```
 
@@ -86,7 +88,7 @@ armctl disarm
 
 ```bash
 export ARM_BRIDGE_TOKEN='replace-with-a-long-random-value'
-arm-bridge --serial /dev/ttyACM0
+arm-bridge --serial /dev/ttyACM0 --allow-real-motion
 ```
 
 Keep the bridge bound to `127.0.0.1`. If NemoClaw runs in a VM/container, expose
