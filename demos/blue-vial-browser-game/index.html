@@ -151,7 +151,9 @@ function animate(now){requestAnimationFrame(animate);const dt=Math.min(.04,(now-
 if(running&&!paused&&!stopped){const s=sequence[currentStep];if(s){if(elapsed===0)enterStep();if(!running)return;elapsed+=dt;const t=Math.min(1,elapsed/s.duration),smooth=t*t*(3-2*t);const prev=currentStep===0?new THREE.Vector3(robotBaseX+.45,topY+1.12,robotBaseZ+.3):new THREE.Vector3(...sequence[currentStep-1].to);const end=new THREE.Vector3(...s.to);handTarget.copy(prev).lerp(end,smooth);if(t>=1){currentStep++;elapsed=0;if(currentStep>=sequence.length){running=false;}}}}
 solveArm(handTarget);if(running||held){pathPoints.push(handTarget.clone());if(pathPoints.length>90)pathPoints.shift();pathGeom.setFromPoints(pathPoints)}if(held){blue.position.set(handTarget.x,handTarget.y-.66,handTarget.z);mask.position.set(blue.position.x,topY+.03,blue.position.z);maskEdge.position.copy(mask.position);waypoint.position.set(binX,topY+.05,binZ)}else{waypoint.position.set(blue.position.x,topY+.055,blue.position.z)}projectOverlay();renderer.render(scene,camera)}requestAnimationFrame(animate);
 applyRandomization();updateSteps('scan');
+window.BlueVialRuntime={THREE,scene,camera,renderer,amb,key,rim,floor,grid,activeScenario:'blue-vial',resetBlue:doReset,setStatus,showToast,getStopped:()=>stopped,resetHilConfirmation:()=>{hilConfirmed=false;$('confirmBtn').classList.remove('confirmed');$('confirmBtn').textContent='確認工作區（模擬閘門）'}};
 })();
 </script>
+<script src="./scenarios.js"></script>
 </body>
 </html>

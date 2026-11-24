@@ -88,7 +88,7 @@ armctl disarm
 
 ```bash
 export ARM_BRIDGE_TOKEN='replace-with-a-long-random-value'
-arm-bridge --serial /dev/ttyACM0
+arm-bridge --serial /dev/ttyACM0 --allow-real-motion
 ```
 
 Keep the bridge bound to `127.0.0.1`. If NemoClaw runs in a VM/container, expose

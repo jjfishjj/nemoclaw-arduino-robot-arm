@@ -23,7 +23,11 @@ def test_pairing_locks_after_eight_failed_attempts():
 def test_frontend_never_contains_bridge_token():
     from arm_bridge.console import ASSETS
 
-    content = "".join(path.read_text() for path in ASSETS.iterdir())
+    content = "".join(
+        path.read_text()
+        for path in ASSETS.rglob("*")
+        if path.is_file() and path.suffix.lower() in {".html", ".js", ".css", ".svg"}
+    )
     assert "ARM_BRIDGE_TOKEN" not in content
     assert "localStorage" not in content
     assert "sessionStorage" not in content

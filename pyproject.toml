@@ -12,7 +12,7 @@ license = {text = "MIT"}
 dependencies = ["pyserial>=3.5"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "Pillow>=10.0"]
 
 [project.scripts]
 arm-bridge = "arm_bridge.server:main"
@@ -23,4 +23,3 @@ include = ["arm_bridge*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-

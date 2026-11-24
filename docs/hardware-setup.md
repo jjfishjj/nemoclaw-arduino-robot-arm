@@ -59,7 +59,7 @@ Leave at least 5–10 degrees of margin from every observed mechanical endpoint.
 - [ ] D7 interlock reports open when pressed.
 - [ ] Calibration sketch was tested one unloaded joint at a time.
 - [ ] Host bridge starts in mock mode and rejects out-of-range commands.
-- [ ] Real bridge starts with `--serial` and a bearer token.
+- [ ] Real bridge starts with `--serial`, `--allow-real-motion`, and a bearer token.
 - [ ] First real move changes only one joint by 5 degrees at low speed.
 - [ ] `stop` detaches outputs; the five-second watchdog also detaches them.
 
@@ -79,4 +79,3 @@ direction, or approaches a hard stop, cut servo power immediately.
 The repository tests can validate command schemas and software limits. They
 cannot verify polarity, supply capacity, physical clearances, horn alignment,
 real emergency-stop operation, or the correct limits for a specific arm.
-

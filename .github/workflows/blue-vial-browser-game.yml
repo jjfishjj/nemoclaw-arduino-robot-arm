@@ -1,0 +1,43 @@
+name: Blue Vial Browser Game
+
+on:
+  push:
+    paths:
+      - "demos/blue-vial-browser-game/**"
+      - "docs/blue-vial-browser-game.md"
+      - "tests/browser/blue-vial-smoke.cjs"
+      - ".github/workflows/blue-vial-browser-game.yml"
+  pull_request:
+    paths:
+      - "demos/blue-vial-browser-game/**"
+      - "docs/blue-vial-browser-game.md"
+      - "tests/browser/blue-vial-smoke.cjs"
+      - ".github/workflows/blue-vial-browser-game.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install pinned Playwright
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: |
+          npm install --prefix "$RUNNER_TEMP/blue-vial-browser-check" \
+            --no-save --no-package-lock --no-audit --no-fund \
+            playwright@1.65.1
+      - name: Install Chromium
+        run: >-
+          "$RUNNER_TEMP/blue-vial-browser-check/node_modules/.bin/playwright"
+          install --with-deps chromium
+      - name: Smoke-test the game in Chromium
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/blue-vial-browser-check/node_modules/playwright
+        run: node tests/browser/blue-vial-smoke.cjs

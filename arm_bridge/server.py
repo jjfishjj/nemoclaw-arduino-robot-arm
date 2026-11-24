@@ -8,6 +8,31 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .core import ArmController, MockTransport, SafetyError, SerialTransport
 
 
+def build_controller(args):
+    """Build only the Arduino controller modes implemented by this bridge."""
+    robot = getattr(args, "robot", "arduino4")
+    if robot != "arduino4":
+        raise SafetyError(
+            f"robot {robot!r} is not supported by this bridge; "
+            "SO-101 is currently a ROS 2 simulation scaffold"
+        )
+
+    if getattr(args, "require_startup_checklist", False):
+        raise SafetyError(
+            "startup-checklist enforcement is not implemented by this controller"
+        )
+
+    serial_port = getattr(args, "serial", None)
+    allow_real_motion = bool(getattr(args, "allow_real_motion", False))
+    if serial_port and not allow_real_motion:
+        raise SafetyError("serial control requires explicit --allow-real-motion")
+    if allow_real_motion and not serial_port:
+        raise SafetyError("--allow-real-motion requires --serial")
+
+    transport = SerialTransport(serial_port) if serial_port else MockTransport()
+    return ArmController(transport)
+
+
 def make_handler(controller: ArmController, token: str | None):
     class Handler(BaseHTTPRequestHandler):
         def _json(self, status: int, body: dict):
@@ -55,15 +80,28 @@ def main():
     parser = argparse.ArgumentParser(description="NemoClaw Arduino arm safety bridge")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--robot", choices=("arduino4", "so101"), default="arduino4")
     parser.add_argument("--serial", help="Arduino serial port; omit for safe mock mode")
+    parser.add_argument(
+        "--allow-real-motion", action="store_true",
+        help="explicitly allow serial hardware motion",
+    )
+    parser.add_argument(
+        "--require-startup-checklist", action="store_true",
+        help="request checklist enforcement (currently unsupported)",
+    )
     args = parser.parse_args()
+    try:
+        controller = build_controller(args)
+    except SafetyError as exc:
+        parser.error(str(exc))
     token = os.getenv("ARM_BRIDGE_TOKEN")
-    transport = SerialTransport(args.serial) if args.serial else MockTransport()
     mode = f"serial {args.serial}" if args.serial else "mock"
     print(f"Arm bridge listening on http://{args.host}:{args.port} ({mode})")
-    ThreadingHTTPServer((args.host, args.port), make_handler(ArmController(transport), token)).serve_forever()
+    ThreadingHTTPServer(
+        (args.host, args.port), make_handler(controller, token)
+    ).serve_forever()
 
 
 if __name__ == "__main__":
     main()
-
